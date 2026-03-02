@@ -14,6 +14,9 @@ export class Gem {
     this.specialType = null;
     this.isDestroying = false;
     this.rocketIndicators = null;
+    this._selectFx = null;
+    this._selectTween = null;
+    this._glowFx = null;
 
     const { GEM_SIZE, CELL_SIZE, OFFSET_X, OFFSET_Y } = GAME_CONFIG.BOARD;
     const x = OFFSET_X + col * CELL_SIZE + GEM_SIZE / 2;
@@ -29,7 +32,7 @@ export class Gem {
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 1,
-    }).setOrigin(0.5).setAlpha(0.3);
+    }).setOrigin(0.5).setAlpha(0.25);
 
     // 특수 블록 오버레이 (처음엔 숨김)
     this.specialOverlay = scene.add.text(x, y, '', {
@@ -37,7 +40,7 @@ export class Gem {
       color: '#ffffff',
     }).setOrigin(0.5).setAlpha(0).setDepth(1);
 
-    // 발광 링 (특수블록용)
+    // 발광 링 (특수블록용 — preFX 폴백)
     this.glowRect = scene.add.rectangle(x, y, GEM_SIZE + 4, GEM_SIZE + 4, 0xffffff, 0)
       .setStrokeStyle(0).setDepth(-1);
   }
@@ -68,20 +71,20 @@ export class Gem {
       this.colorIndex = -1;
       this.color = null;
       this.sprite.setTexture('special_rainbow');
-      this.icon.setText('🌈').setAlpha(0.8).setFontSize(26);
+      this.icon.setText('🌈').setAlpha(0.7).setFontSize(24);
       this.specialOverlay.setAlpha(0);
       this._startGlow(0xf1c40f);
       this._startRainbowPulse();
     } else if (type === 'rocket_h' || type === 'rocket_v') {
       const dir = type === 'rocket_h' ? 'h' : 'v';
       this.sprite.setTexture(`special_rocket_${dir}_${this.color}`);
-      this.icon.setAlpha(0.2);
+      this.icon.setAlpha(0.15);
       this.specialOverlay.setAlpha(0);
       this._startGlow(0xffffff);
       this._startRocketAnim();
     } else if (type === 'bomb') {
       this.sprite.setTexture(`special_bomb_${this.color}`);
-      this.icon.setAlpha(0.15);
+      this.icon.setAlpha(0.1);
       this.specialOverlay.setAlpha(0);
       this._startGlow(0xff4444);
       this._startBombPulse();
@@ -89,18 +92,32 @@ export class Gem {
   }
 
   _startGlow(color) {
-    this.glowRect.setStrokeStyle(2.5, color, 0.6);
-    this.glowRect.setFillStyle(color, 0);
-    this.scene.tweens.add({
-      targets: this.glowRect,
-      alpha: { from: 0.5, to: 0.1 },
-      scaleX: { from: 1, to: 1.1 },
-      scaleY: { from: 1, to: 1.1 },
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    // preFX 기반 글로우 (WebGL)
+    if (this.sprite.preFX) {
+      this._glowFx = this.sprite.preFX.addGlow(color, 4, 0, false, 0.1, 10);
+      this.scene.tweens.add({
+        targets: this._glowFx,
+        outerStrength: { from: 2, to: 6 },
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    } else {
+      // Canvas 폴백
+      this.glowRect.setStrokeStyle(2.5, color, 0.6);
+      this.glowRect.setFillStyle(color, 0);
+      this.scene.tweens.add({
+        targets: this.glowRect,
+        alpha: { from: 0.5, to: 0.1 },
+        scaleX: { from: 1, to: 1.1 },
+        scaleY: { from: 1, to: 1.1 },
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
   }
 
   _startRocketAnim() {
@@ -116,19 +133,19 @@ export class Gem {
 
     positions.forEach(({ dx, dy }, i) => {
       const ind = this.scene.add.text(x + dx, y + dy, chars[i], {
-        fontSize: '11px',
+        fontSize: '12px',
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 1,
-      }).setOrigin(0.5).setAlpha(0.7).setDepth(2);
+      }).setOrigin(0.5).setAlpha(0.8).setDepth(2);
 
       const prop = isH ? 'x' : 'y';
       const base = isH ? x + dx : y + dy;
       this.scene.tweens.add({
         targets: ind,
-        [prop]: base + (i === 0 ? -5 : 5),
-        alpha: 0.2,
-        duration: 500,
+        [prop]: base + (i === 0 ? -6 : 6),
+        alpha: 0.15,
+        duration: 450,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
@@ -141,9 +158,9 @@ export class Gem {
   _startBombPulse() {
     this.scene.tweens.add({
       targets: [this.sprite, this.icon],
-      scaleX: { from: 1, to: 1.05 },
-      scaleY: { from: 1, to: 1.05 },
-      duration: 500,
+      scaleX: { from: 1, to: 1.06 },
+      scaleY: { from: 1, to: 1.06 },
+      duration: 450,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
@@ -154,10 +171,13 @@ export class Gem {
     const colors = [0xe74c3c, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6];
     let ci = 0;
     this.scene.time.addEvent({
-      delay: 300,
+      delay: 250,
       loop: true,
       callback: () => {
-        if (this.glowRect && this.glowRect.active) {
+        if (this._glowFx) {
+          this._glowFx.color = colors[ci % colors.length];
+          ci++;
+        } else if (this.glowRect && this.glowRect.active) {
           this.glowRect.setStrokeStyle(2.5, colors[ci % colors.length], 0.6);
           ci++;
         }
@@ -177,25 +197,51 @@ export class Gem {
       x, y,
       duration,
       ease: 'Power2',
-      onComplete: () => { if (onComplete) onComplete(); },
+      onComplete: () => {
+        // 착지 바운스
+        this.scene.tweens.add({
+          targets: this.allTargets,
+          scaleY: { from: 0.92, to: 1.0 },
+          scaleX: { from: 1.06, to: 1.0 },
+          duration: GAME_CONFIG.ANIM.LAND_BOUNCE,
+          ease: 'Bounce.easeOut',
+        });
+        if (onComplete) onComplete();
+      },
     });
   }
 
   setSelected(selected) {
     if (selected) {
-      this.sprite.setTint(0xcccccc);
-      this.scene.tweens.add({
+      // preFX 글로우 (WebGL)
+      if (this.sprite.preFX && !this._selectFx) {
+        this._selectFx = this.sprite.preFX.addGlow(0xffffff, 3, 0, false, 0.1, 8);
+      }
+      // 펄스 애니메이션
+      this._selectTween = this.scene.tweens.add({
         targets: this.allTargets,
-        scaleX: 1.12, scaleY: 1.12,
-        duration: 100, ease: 'Power1',
+        scaleX: { from: 1.0, to: 1.08 },
+        scaleY: { from: 1.0, to: 1.08 },
+        duration: GAME_CONFIG.ANIM.SELECT_PULSE,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
       });
     } else {
+      // 글로우 FX 제거
+      if (this._selectFx && this.sprite.preFX) {
+        this.sprite.preFX.remove(this._selectFx);
+        this._selectFx = null;
+      }
+      // 펄스 중지
+      if (this._selectTween) {
+        this._selectTween.stop();
+        this._selectTween = null;
+      }
       this.sprite.clearTint();
-      // 특수블록은 고유 스케일 유지
-      const baseScale = 1;
       this.scene.tweens.add({
         targets: this.allTargets,
-        scaleX: baseScale, scaleY: baseScale,
+        scaleX: 1, scaleY: 1,
         duration: 100, ease: 'Power1',
       });
     }
@@ -205,11 +251,15 @@ export class Gem {
 
   destroy(onComplete) {
     this.isDestroying = true;
+    // 흰색 틴트 플래시
+    if (this.sprite.active) this.sprite.setTint(0xffffff);
+
     this.scene.tweens.add({
       targets: this.allTargets,
       scaleX: 0, scaleY: 0, alpha: 0,
+      angle: Phaser.Math.Between(-15, 15),
       duration: GAME_CONFIG.ANIM.DESTROY_SPEED,
-      ease: 'Power2',
+      ease: 'Back.easeIn',
       onComplete: () => {
         this._cleanup();
         if (onComplete) onComplete();
@@ -222,6 +272,19 @@ export class Gem {
   }
 
   _cleanup() {
+    // preFX 정리
+    if (this._selectFx && this.sprite && this.sprite.preFX) {
+      this.sprite.preFX.remove(this._selectFx);
+      this._selectFx = null;
+    }
+    if (this._glowFx && this.sprite && this.sprite.preFX) {
+      this.sprite.preFX.remove(this._glowFx);
+      this._glowFx = null;
+    }
+    if (this._selectTween) {
+      this._selectTween.stop();
+      this._selectTween = null;
+    }
     [this.sprite, this.icon, this.specialOverlay, this.glowRect].forEach(obj => {
       if (obj && obj.active) obj.destroy();
     });

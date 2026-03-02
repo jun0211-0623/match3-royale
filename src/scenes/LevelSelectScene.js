@@ -3,6 +3,7 @@ import { GAME_CONFIG } from '../config.js';
 import { SaveManager } from '../managers/SaveManager.js';
 import { LevelManager } from '../managers/LevelManager.js';
 import { UIButton } from '../ui/UIButton.js';
+import { fadeToScene, fadeIn } from '../utils/SceneTransitions.js';
 
 export class LevelSelectScene extends Phaser.Scene {
   constructor() {
@@ -10,16 +11,20 @@ export class LevelSelectScene extends Phaser.Scene {
   }
 
   create() {
+    fadeIn(this);
     const cx = GAME_CONFIG.WIDTH / 2;
     const saveData = SaveManager.load();
     const totalLevels = LevelManager.getTotalLevels();
+
+    // 배경
+    this.add.image(cx, GAME_CONFIG.HEIGHT / 2, 'bg_gradient');
 
     // 상단 뒤로가기
     this.add.text(30, 30, '< 뒤로', {
       fontSize: '24px',
       color: '#ffffff',
     }).setInteractive({ useHandCursor: true })
-      .on('pointerup', () => this.scene.start('Menu'));
+      .on('pointerup', () => fadeToScene(this, 'Menu'));
 
     // 코인 표시
     this.add.text(GAME_CONFIG.WIDTH - 30, 30, `💰 ${saveData.coins}`, {
@@ -32,6 +37,8 @@ export class LevelSelectScene extends Phaser.Scene {
       fontSize: '40px',
       fontStyle: 'bold',
       color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
     }).setOrigin(0.5);
 
     // 레벨 버튼 격자 (5열)
@@ -63,23 +70,55 @@ export class LevelSelectScene extends Phaser.Scene {
           bgColor,
           radius: 16,
           shadowOffset: 3,
-          onClick: () => this.scene.start('Game', { level }),
+          glow: isCurrent,
+          glowColor: 0xe67e22,
+          onClick: () => fadeToScene(this, 'Game', { level }),
+        });
+
+        // 순차 등장 애니메이션
+        btn.bg.setAlpha(0);
+        btn.label.setAlpha(0);
+        btn.shadow.setAlpha(0);
+        this.tweens.add({
+          targets: [btn.bg, btn.label, btn.shadow, btn.hitArea],
+          alpha: 1,
+          duration: 200,
+          delay: i * 35,
+          ease: 'Power2',
         });
 
         // 별 표시
         if (stars > 0) {
           const starStr = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-          this.add.text(x, y + 30, starStr, {
+          const starText = this.add.text(x, y + 30, starStr, {
             fontSize: '14px',
             color: '#f1c40f',
-          }).setOrigin(0.5);
+          }).setOrigin(0.5).setAlpha(0);
+          this.tweens.add({
+            targets: starText,
+            alpha: 1,
+            duration: 200,
+            delay: i * 35 + 100,
+          });
         }
       } else {
-        // 잠긴 레벨 (UIButton 사용하되 어두운 색)
+        // 잠긴 레벨
         const g = this.add.graphics();
-        g.fillStyle(0x333333, 0.6);
+        g.fillStyle(0x222233, 0.5);
         g.fillRoundedRect(x - btnSize / 2, y - btnSize / 2, btnSize, btnSize, 16);
-        this.add.text(x, y, '🔒', { fontSize: '28px' }).setOrigin(0.5);
+        g.lineStyle(1, 0x333344, 0.3);
+        g.strokeRoundedRect(x - btnSize / 2, y - btnSize / 2, btnSize, btnSize, 16);
+        const lock = this.add.text(x, y, '🔒', { fontSize: '28px' }).setOrigin(0.5);
+
+        // 순차 등장
+        g.setAlpha(0);
+        lock.setAlpha(0);
+        this.tweens.add({
+          targets: [g, lock],
+          alpha: 1,
+          duration: 200,
+          delay: i * 35,
+        });
       }
     }
   }

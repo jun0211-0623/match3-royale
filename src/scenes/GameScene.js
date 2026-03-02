@@ -9,6 +9,7 @@ import { BoosterManager, BOOSTERS } from '../managers/BoosterManager.js';
 import { audioManager } from '../managers/AudioManager.js';
 import { HintManager } from '../managers/HintManager.js';
 import { UIButton } from '../ui/UIButton.js';
+import { fadeToScene, fadeIn } from '../utils/SceneTransitions.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -21,14 +22,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    fadeIn(this);
     const cx = GAME_CONFIG.WIDTH / 2;
     const { ROWS, COLS, CELL_SIZE, OFFSET_X, OFFSET_Y, PADDING } = GAME_CONFIG.BOARD;
     this.boardConfig = { ROWS, COLS, CELL_SIZE, OFFSET_X, OFFSET_Y };
 
+    // ─── 배경 ────────────────────────────────────
+    this.add.image(cx, GAME_CONFIG.HEIGHT / 2, 'bg_gradient');
+
     // ─── 레벨 데이터 로드 ──────────────────────
     const levelData = LevelManager.getLevel(this.level);
     if (!levelData) {
-      this.scene.start('LevelSelect');
+      fadeToScene(this, 'LevelSelect');
       return;
     }
 
@@ -114,18 +119,38 @@ export class GameScene extends Phaser.Scene {
       color: '#e74c3c',
     }).setOrigin(0.5, 0).setAlpha(0);
 
-    // ─── 보드 배경 ──────────────────────────────
+    // ─── 보드 배경 (글로우 + 그리드) ──────────────
 
     const boardWidth = COLS * CELL_SIZE - PADDING;
     const boardHeight = ROWS * CELL_SIZE - PADDING;
-    this.add.rectangle(
-      OFFSET_X + boardWidth / 2,
-      OFFSET_Y + boardHeight / 2,
-      boardWidth + 16,
-      boardHeight + 16,
-      0x16213e,
-      0.8
-    ).setStrokeStyle(2, 0x0f3460);
+    const bx = OFFSET_X + boardWidth / 2;
+    const by = OFFSET_Y + boardHeight / 2;
+
+    // 아우터 글로우
+    const outerGlow = this.add.rectangle(bx, by, boardWidth + 28, boardHeight + 28, 0x1a3a5c, 0.25);
+    if (outerGlow.preFX) {
+      outerGlow.preFX.addGlow(0x3498db, 5, 0, false, 0.04, 12);
+    }
+
+    // 메인 보드 bg
+    this.add.rectangle(bx, by, boardWidth + 16, boardHeight + 16, 0x0d1b2a, 0.9)
+      .setStrokeStyle(2, 0x1a4a6e, 0.6);
+
+    // 인너 섀도
+    this.add.rectangle(bx, OFFSET_Y - 2, boardWidth + 12, 6, 0x000000, 0.15);
+    this.add.rectangle(OFFSET_X - 2, by, 6, boardHeight + 12, 0x000000, 0.1);
+
+    // 미세 그리드 라인
+    const gridLines = this.add.graphics();
+    gridLines.lineStyle(1, 0xffffff, 0.025);
+    for (let r = 1; r < ROWS; r++) {
+      const ly = OFFSET_Y + r * CELL_SIZE - PADDING / 2;
+      gridLines.lineBetween(OFFSET_X, ly, OFFSET_X + boardWidth, ly);
+    }
+    for (let c = 1; c < COLS; c++) {
+      const lx = OFFSET_X + c * CELL_SIZE - PADDING / 2;
+      gridLines.lineBetween(lx, OFFSET_Y, lx, OFFSET_Y + boardHeight);
+    }
 
     // ─── 보드 & 엔진 생성 ───────────────────────
 
@@ -234,7 +259,7 @@ export class GameScene extends Phaser.Scene {
         // 이동 횟수 소진 → 실패
         if (this.goalManager.movesLeft <= 0) {
           this.time.delayedCall(500, () => {
-            this.scene.start('Result', {
+            fadeToScene(this, 'Result', {
               level: this.level,
               cleared: false,
               stars: 0,
@@ -269,6 +294,19 @@ export class GameScene extends Phaser.Scene {
     if (this.level > 1 || SaveManager.isTutorialDone()) {
       this.showGoalPopup();
     }
+
+    // ─── 앰비언트 파티클 ──────────────────────────
+    this.add.particles(cx, GAME_CONFIG.HEIGHT + 10, 'particle_glow', {
+      x: { min: -cx, max: cx },
+      speed: { min: 10, max: 25 },
+      angle: { min: 260, max: 280 },
+      scale: { start: 0.3, end: 0.08 },
+      alpha: { start: 0.12, end: 0 },
+      tint: [0x3498db, 0x9b59b6, 0x2ecc71],
+      lifespan: { min: 4000, max: 8000 },
+      frequency: 900,
+      quantity: 1,
+    }).setDepth(-1);
   }
 
   // ─── 레벨 클리어 ──────────────────────────────
@@ -287,7 +325,7 @@ export class GameScene extends Phaser.Scene {
     SaveManager.addCoins(coins);
 
     this.time.delayedCall(800, () => {
-      this.scene.start('Result', {
+      fadeToScene(this, 'Result', {
         level: this.level,
         cleared: true,
         stars,
@@ -493,9 +531,9 @@ export class GameScene extends Phaser.Scene {
             this._paused = false;
             this.engine.isProcessing = false;
           } else if (action === 'restart') {
-            this.scene.restart({ level: this.level });
+            fadeToScene(this, 'Game', { level: this.level });
           } else if (action === 'exit') {
-            this.scene.start('LevelSelect');
+            fadeToScene(this, 'LevelSelect');
           }
         },
       });
@@ -534,7 +572,7 @@ export class GameScene extends Phaser.Scene {
 
     const exitBtn = new UIButton(this, WIDTH / 2 - 80, HEIGHT / 2 + 40, 140, 50, {
       text: '나가기', bgColor: 0xe74c3c, fontSize: '22px', depth: 52,
-      onClick: () => this.scene.start('LevelSelect'),
+      onClick: () => fadeToScene(this, 'LevelSelect'),
     });
     elements.push(exitBtn.shadow, exitBtn.bg, exitBtn.hitArea, exitBtn.label);
 

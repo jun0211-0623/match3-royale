@@ -23,14 +23,14 @@ export const GAME_CONFIG = {
     orange: 0xe67e22,
   },
 
-  // 입체감 있는 젬 텍스처용 팔레트
+  // 입체감 있는 젬 텍스처용 팔레트 (8종 변형)
   COLOR_PALETTE: {
-    red:    { base: 0xe74c3c, light: 0xf1948a, dark: 0xc0392b, shine: 0xfadbd8 },
-    blue:   { base: 0x3498db, light: 0x7fb3d8, dark: 0x2176ae, shine: 0xd6eaf8 },
-    green:  { base: 0x27ae60, light: 0x6fcf97, dark: 0x1e8449, shine: 0xd5f5e3 },
-    yellow: { base: 0xf1c40f, light: 0xf7dc6f, dark: 0xd4ac0d, shine: 0xfef9e7 },
-    purple: { base: 0x8e44ad, light: 0xbb8fce, dark: 0x6c3483, shine: 0xe8daef },
-    orange: { base: 0xe67e22, light: 0xf0b27a, dark: 0xca6f1e, shine: 0xfdebd0 },
+    red:    { base: 0xe74c3c, light: 0xf1948a, lighter: 0xf5b7b1, dark: 0xc0392b, darker: 0x922b21, shine: 0xfadbd8, glow: 0xff6b6b, rim: 0xffeaea },
+    blue:   { base: 0x3498db, light: 0x7fb3d8, lighter: 0xaed6f1, dark: 0x2176ae, darker: 0x1a5276, shine: 0xd6eaf8, glow: 0x5dade2, rim: 0xe8f6fd },
+    green:  { base: 0x27ae60, light: 0x6fcf97, lighter: 0xa9dfbf, dark: 0x1e8449, darker: 0x145a32, shine: 0xd5f5e3, glow: 0x58d68d, rim: 0xe8f8f0 },
+    yellow: { base: 0xf1c40f, light: 0xf7dc6f, lighter: 0xfad7a0, dark: 0xd4ac0d, darker: 0xb7950b, shine: 0xfef9e7, glow: 0xf9e154, rim: 0xfff8dc },
+    purple: { base: 0x8e44ad, light: 0xbb8fce, lighter: 0xd2b4de, dark: 0x6c3483, darker: 0x512e5f, shine: 0xe8daef, glow: 0xaf7ac5, rim: 0xf4ecf7 },
+    orange: { base: 0xe67e22, light: 0xf0b27a, lighter: 0xf5cba7, dark: 0xca6f1e, darker: 0xa04000, shine: 0xfdebd0, glow: 0xf5a623, rim: 0xfef0e0 },
   },
 
   ANIM: {
@@ -38,6 +38,9 @@ export const GAME_CONFIG = {
     FALL_SPEED: 100,
     DESTROY_SPEED: 200,
     COMBO_DELAY: 100,
+    LAND_BOUNCE: 180,
+    SELECT_PULSE: 600,
+    SCENE_FADE: 300,
   },
 
   SCORE: {

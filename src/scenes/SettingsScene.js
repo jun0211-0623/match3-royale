@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
 import { audioManager } from '../managers/AudioManager.js';
 import { UIButton } from '../ui/UIButton.js';
+import { fadeToScene, fadeIn } from '../utils/SceneTransitions.js';
 
 export class SettingsScene extends Phaser.Scene {
   constructor() {
@@ -9,21 +10,34 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   create() {
+    fadeIn(this);
     const cx = GAME_CONFIG.WIDTH / 2;
+
+    // 배경
+    this.add.image(cx, GAME_CONFIG.HEIGHT / 2, 'bg_gradient');
 
     // 뒤로가기
     this.add.text(30, 30, '< 뒤로', {
       fontSize: '24px',
       color: '#ffffff',
     }).setInteractive({ useHandCursor: true })
-      .on('pointerup', () => this.scene.start('Menu'));
+      .on('pointerup', () => fadeToScene(this, 'Menu'));
 
     // 타이틀
     this.add.text(cx, 80, '설정', {
       fontSize: '40px',
       fontStyle: 'bold',
       color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
     }).setOrigin(0.5);
+
+    // 설정 패널 배경
+    const settingsPanel = this.add.graphics();
+    settingsPanel.fillStyle(0x0d1b2a, 0.4);
+    settingsPanel.fillRoundedRect(cx - 250, 140, 500, 340, 16);
+    settingsPanel.lineStyle(1, 0x1a4a6e, 0.25);
+    settingsPanel.strokeRoundedRect(cx - 250, 140, 500, 340, 16);
 
     // 사운드 토글
     this.createToggle('사운드', 200, 'soundOn', true);
@@ -40,7 +54,7 @@ export class SettingsScene extends Phaser.Scene {
     // 버전 정보
     this.add.text(cx, GAME_CONFIG.HEIGHT - 60, 'match3-royale v1.0.0', {
       fontSize: '18px',
-      color: '#555555',
+      color: '#444466',
     }).setOrigin(0.5);
   }
 
@@ -87,7 +101,7 @@ export class SettingsScene extends Phaser.Scene {
       .setDepth(50).setInteractive();
 
     const panel = this.add.graphics().setDepth(51);
-    panel.fillStyle(0x1a1a2e, 0.95);
+    panel.fillStyle(0x0d1b2a, 0.95);
     panel.fillRoundedRect(cx - 190, cy - 100, 380, 200, 20);
     panel.lineStyle(3, 0xe74c3c, 1);
     panel.strokeRoundedRect(cx - 190, cy - 100, 380, 200, 20);

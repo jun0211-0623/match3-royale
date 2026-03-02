@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { generateGemTextures, generateSpecialTextures } from '../utils/GemTextureGenerator.js';
+import { generateGemTextures, generateSpecialTextures, generateParticleTextures, generateBackgroundTexture } from '../utils/GemTextureGenerator.js';
 
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -31,10 +31,15 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create() {
-    // 젬 텍스처 사전 생성
+    // 텍스처 사전 생성
     generateGemTextures(this);
     generateSpecialTextures(this);
+    generateParticleTextures(this);
+    generateBackgroundTexture(this);
 
-    this.scene.start('Menu');
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('Menu');
+    });
   }
 }

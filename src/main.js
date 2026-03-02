@@ -9,7 +9,7 @@ import { ResultScene } from './scenes/ResultScene.js';
 import { SettingsScene } from './scenes/SettingsScene.js';
 
 const config = {
-  type: Phaser.AUTO,
+  type: Phaser.WEBGL,
   parent: 'game-container',
 
   scale: {
