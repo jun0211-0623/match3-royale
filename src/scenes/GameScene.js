@@ -8,6 +8,7 @@ import { SaveManager } from '../managers/SaveManager.js';
 import { BoosterManager, BOOSTERS } from '../managers/BoosterManager.js';
 import { audioManager } from '../managers/AudioManager.js';
 import { HintManager } from '../managers/HintManager.js';
+import { UIButton } from '../ui/UIButton.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -189,18 +190,16 @@ export class GameScene extends Phaser.Scene {
       const bx = boosterStartX + i * 180;
       const booster = BOOSTERS[id];
 
-      const bg = this.add.rectangle(bx, boosterY, 160, 50, 0x2c3e50, 0.9)
-        .setStrokeStyle(2, 0x3498db)
-        .setInteractive({ useHandCursor: true });
-
-      const label = this.add.text(bx, boosterY, `${booster.icon} ${booster.cost}💰`, {
+      const btn = new UIButton(this, bx, boosterY, 160, 48, {
+        text: `${booster.icon} ${booster.cost}💰`,
         fontSize: '18px',
-        color: '#ffffff',
-      }).setOrigin(0.5);
+        bgColor: 0x2c3e50,
+        radius: 10,
+        shadowOffset: 3,
+        onClick: () => this.onBoosterClick(id),
+      });
 
-      bg.on('pointerup', () => this.onBoosterClick(id));
-
-      this.boosterButtons[id] = { bg, label };
+      this.boosterButtons[id] = btn;
     });
 
     // ─── 입력 처리 ──────────────────────────────
@@ -408,7 +407,7 @@ export class GameScene extends Phaser.Scene {
     if (boosterId === 'hammer') {
       this.activeBooster = 'hammer';
       this.showMessage('제거할 블록을 선택하세요');
-      this.boosterButtons.hammer.bg.setStrokeStyle(3, 0xe74c3c);
+      this.boosterButtons.hammer.setColor(0xe74c3c);
     } else if (boosterId === 'shuffle') {
       if (BoosterManager.purchase('shuffle')) {
         this.updateCoinDisplay();
@@ -429,7 +428,7 @@ export class GameScene extends Phaser.Scene {
     if (!BoosterManager.purchase('hammer')) return;
     this.updateCoinDisplay();
     this.activeBooster = null;
-    this.boosterButtons.hammer.bg.setStrokeStyle(2, 0x3498db);
+    this.boosterButtons.hammer.setColor(0x2c3e50);
 
     const gem = this.board.getGem(row, col);
     if (!gem) return;
@@ -459,50 +458,48 @@ export class GameScene extends Phaser.Scene {
     this.engine.isProcessing = true;
 
     const { WIDTH, HEIGHT } = GAME_CONFIG;
+    const elements = [];
 
-    // 어두운 오버레이
     const overlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0.7)
       .setDepth(50).setInteractive();
+    elements.push(overlay);
 
-    const panel = this.add.rectangle(WIDTH / 2, HEIGHT / 2, 400, 350, 0x1a1a2e, 0.95)
-      .setStrokeStyle(3, 0x3498db).setDepth(51);
+    const panel = this.add.graphics().setDepth(51);
+    panel.fillStyle(0x1a1a2e, 0.95);
+    panel.fillRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 175, 400, 350, 20);
+    panel.lineStyle(3, 0x3498db, 1);
+    panel.strokeRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 175, 400, 350, 20);
+    elements.push(panel);
 
-    this.add.text(WIDTH / 2, HEIGHT / 2 - 120, '일시정지', {
+    const titleTxt = this.add.text(WIDTH / 2, HEIGHT / 2 - 120, '일시정지', {
       fontSize: '36px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(52).setName('pause_title');
+    }).setOrigin(0.5).setDepth(52);
+    elements.push(titleTxt);
 
-    const buttons = [
+    const cleanup = () => { elements.forEach(el => el.destroy()); };
+
+    const btnData = [
       { y: -40, text: '계속하기', color: 0x2ecc71, action: 'resume' },
       { y: 30, text: '재시작', color: 0x3498db, action: 'restart' },
       { y: 100, text: '레벨 선택', color: 0x7f8c8d, action: 'exit' },
     ];
 
-    const pauseElements = [overlay, panel];
-
-    buttons.forEach(({ y, text, color, action }) => {
-      const btn = this.add.rectangle(WIDTH / 2, HEIGHT / 2 + y, 260, 55, color)
-        .setDepth(52).setInteractive({ useHandCursor: true });
-      const label = this.add.text(WIDTH / 2, HEIGHT / 2 + y, text, {
-        fontSize: '26px', fontStyle: 'bold', color: '#ffffff',
-      }).setOrigin(0.5).setDepth(53);
-
-      btn.on('pointerup', () => {
-        pauseElements.forEach(el => el.destroy());
-        this.children.list
-          .filter(c => c.depth >= 51 && c.depth <= 53)
-          .forEach(c => c.destroy());
-
-        if (action === 'resume') {
-          this._paused = false;
-          this.engine.isProcessing = false;
-        } else if (action === 'restart') {
-          this.scene.restart({ level: this.level });
-        } else if (action === 'exit') {
-          this.scene.start('LevelSelect');
-        }
+    btnData.forEach(({ y, text, color, action }) => {
+      const btn = new UIButton(this, WIDTH / 2, HEIGHT / 2 + y, 260, 55, {
+        text, bgColor: color, fontSize: '26px', depth: 52,
+        onClick: () => {
+          cleanup();
+          if (action === 'resume') {
+            this._paused = false;
+            this.engine.isProcessing = false;
+          } else if (action === 'restart') {
+            this.scene.restart({ level: this.level });
+          } else if (action === 'exit') {
+            this.scene.start('LevelSelect');
+          }
+        },
       });
-
-      pauseElements.push(btn, label);
+      elements.push(btn.shadow, btn.bg, btn.hitArea, btn.label);
     });
   }
 
@@ -512,46 +509,44 @@ export class GameScene extends Phaser.Scene {
     this.engine.isProcessing = true;
 
     const { WIDTH, HEIGHT } = GAME_CONFIG;
+    const elements = [];
 
     const overlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0.7)
       .setDepth(50).setInteractive();
+    elements.push(overlay);
 
-    const panel = this.add.rectangle(WIDTH / 2, HEIGHT / 2, 400, 220, 0x1a1a2e, 0.95)
-      .setStrokeStyle(3, 0xe74c3c).setDepth(51);
+    const panel = this.add.graphics().setDepth(51);
+    panel.fillStyle(0x1a1a2e, 0.95);
+    panel.fillRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 110, 400, 220, 20);
+    panel.lineStyle(3, 0xe74c3c, 1);
+    panel.strokeRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 110, 400, 220, 20);
+    elements.push(panel);
 
     const title = this.add.text(WIDTH / 2, HEIGHT / 2 - 60, '나가시겠습니까?', {
       fontSize: '28px', fontStyle: 'bold', color: '#ffffff',
     }).setOrigin(0.5).setDepth(52);
-
     const subtitle = this.add.text(WIDTH / 2, HEIGHT / 2 - 25, '진행 상황이 저장되지 않습니다', {
       fontSize: '18px', color: '#aaaaaa',
     }).setOrigin(0.5).setDepth(52);
+    elements.push(title, subtitle);
 
-    const elements = [overlay, panel, title, subtitle];
+    const cleanup = () => { elements.forEach(el => el.destroy()); };
 
-    // 나가기
-    const exitBtn = this.add.rectangle(WIDTH / 2 - 80, HEIGHT / 2 + 40, 140, 50, 0xe74c3c)
-      .setDepth(52).setInteractive({ useHandCursor: true });
-    const exitLabel = this.add.text(WIDTH / 2 - 80, HEIGHT / 2 + 40, '나가기', {
-      fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(53);
-
-    exitBtn.on('pointerup', () => this.scene.start('LevelSelect'));
-    elements.push(exitBtn, exitLabel);
-
-    // 계속하기
-    const stayBtn = this.add.rectangle(WIDTH / 2 + 80, HEIGHT / 2 + 40, 140, 50, 0x2ecc71)
-      .setDepth(52).setInteractive({ useHandCursor: true });
-    const stayLabel = this.add.text(WIDTH / 2 + 80, HEIGHT / 2 + 40, '계속하기', {
-      fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(53);
-
-    stayBtn.on('pointerup', () => {
-      elements.forEach(el => el.destroy());
-      this._paused = false;
-      this.engine.isProcessing = false;
+    const exitBtn = new UIButton(this, WIDTH / 2 - 80, HEIGHT / 2 + 40, 140, 50, {
+      text: '나가기', bgColor: 0xe74c3c, fontSize: '22px', depth: 52,
+      onClick: () => this.scene.start('LevelSelect'),
     });
-    elements.push(stayBtn, stayLabel);
+    elements.push(exitBtn.shadow, exitBtn.bg, exitBtn.hitArea, exitBtn.label);
+
+    const stayBtn = new UIButton(this, WIDTH / 2 + 80, HEIGHT / 2 + 40, 140, 50, {
+      text: '계속하기', bgColor: 0x2ecc71, fontSize: '22px', depth: 52,
+      onClick: () => {
+        cleanup();
+        this._paused = false;
+        this.engine.isProcessing = false;
+      },
+    });
+    elements.push(stayBtn.shadow, stayBtn.bg, stayBtn.hitArea, stayBtn.label);
   }
 
   // ─── 목표 팝업 (레벨 시작) ──────────────────
@@ -564,8 +559,11 @@ export class GameScene extends Phaser.Scene {
       .setDepth(50).setInteractive();
 
     const panelH = 180 + this.goalManager.goals.length * 35;
-    const panel = this.add.rectangle(WIDTH / 2, HEIGHT / 2, 380, panelH, 0x1a1a2e, 0.95)
-      .setStrokeStyle(3, 0xf1c40f).setDepth(51);
+    const panel = this.add.graphics().setDepth(51);
+    panel.fillStyle(0x1a1a2e, 0.95);
+    panel.fillRoundedRect(WIDTH / 2 - 190, HEIGHT / 2 - panelH / 2, 380, panelH, 20);
+    panel.lineStyle(3, 0xf1c40f, 1);
+    panel.strokeRoundedRect(WIDTH / 2 - 190, HEIGHT / 2 - panelH / 2, 380, panelH, 20);
 
     const title = this.add.text(WIDTH / 2, HEIGHT / 2 - panelH / 2 + 30, `레벨 ${this.level}`, {
       fontSize: '32px', fontStyle: 'bold', color: '#f1c40f',
@@ -587,19 +585,15 @@ export class GameScene extends Phaser.Scene {
       elements.push(dot, label);
     });
 
-    const startBtn = this.add.rectangle(WIDTH / 2, HEIGHT / 2 + panelH / 2 - 40, 200, 50, 0x2ecc71)
-      .setDepth(52).setInteractive({ useHandCursor: true });
-    const startLabel = this.add.text(WIDTH / 2, HEIGHT / 2 + panelH / 2 - 40, '시작!', {
-      fontSize: '26px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(53);
-
-    startBtn.on('pointerup', () => {
-      elements.forEach(el => el.destroy());
-      startBtn.destroy();
-      startLabel.destroy();
-      this.engine.isProcessing = false;
+    const startBtn = new UIButton(this, WIDTH / 2, HEIGHT / 2 + panelH / 2 - 40, 200, 50, {
+      text: '시작!', bgColor: 0x2ecc71, fontSize: '26px', depth: 52,
+      onClick: () => {
+        elements.forEach(el => el.destroy());
+        startBtn.destroy();
+        this.engine.isProcessing = false;
+      },
     });
-    elements.push(startBtn, startLabel);
+    elements.push(startBtn.shadow, startBtn.bg, startBtn.hitArea, startBtn.label);
   }
 
   // ─── 튜토리얼 ────────────────────────────────
@@ -618,23 +612,27 @@ export class GameScene extends Phaser.Scene {
 
     const overlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0.7)
       .setDepth(60).setInteractive();
-    const panel = this.add.rectangle(WIDTH / 2, HEIGHT / 2, 400, 260, 0x1a1a2e, 0.95)
-      .setStrokeStyle(3, 0x2ecc71).setDepth(61);
+    const panel = this.add.graphics().setDepth(61);
+    panel.fillStyle(0x1a1a2e, 0.95);
+    panel.fillRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 130, 400, 260, 20);
+    panel.lineStyle(3, 0x2ecc71, 1);
+    panel.strokeRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 130, 400, 260, 20);
+
     const iconText = this.add.text(WIDTH / 2, HEIGHT / 2 - 60, steps[0].icon, {
       fontSize: '48px',
     }).setOrigin(0.5).setDepth(62);
     const bodyText = this.add.text(WIDTH / 2, HEIGHT / 2 + 10, steps[0].text, {
       fontSize: '22px', color: '#ffffff', align: 'center',
     }).setOrigin(0.5).setDepth(62);
-    const nextBtn = this.add.rectangle(WIDTH / 2, HEIGHT / 2 + 85, 160, 45, 0x2ecc71)
-      .setDepth(62).setInteractive({ useHandCursor: true });
-    const nextLabel = this.add.text(WIDTH / 2, HEIGHT / 2 + 85, '다음', {
-      fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(63);
 
-    const elements = [overlay, panel, iconText, bodyText, nextBtn, nextLabel];
+    const nextBtnUI = new UIButton(this, WIDTH / 2, HEIGHT / 2 + 85, 160, 45, {
+      text: '다음', bgColor: 0x2ecc71, fontSize: '22px', depth: 62,
+      onClick: () => { onNext(); },
+    });
 
-    nextBtn.on('pointerup', () => {
+    const elements = [overlay, panel, iconText, bodyText, nextBtnUI.shadow, nextBtnUI.bg, nextBtnUI.hitArea, nextBtnUI.label];
+
+    const onNext = () => {
       stepIndex++;
       if (stepIndex >= steps.length) {
         elements.forEach(el => el.destroy());
@@ -644,10 +642,10 @@ export class GameScene extends Phaser.Scene {
         iconText.setText(steps[stepIndex].icon);
         bodyText.setText(steps[stepIndex].text);
         if (stepIndex === steps.length - 1) {
-          nextLabel.setText('시작!');
+          nextBtnUI.setText('시작!');
         }
       }
-    });
+    };
   }
 
   // ─── 메시지 표시 ──────────────────────────────

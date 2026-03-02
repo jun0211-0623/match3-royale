@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { generateGemTextures, generateSpecialTextures } from '../utils/GemTextureGenerator.js';
 
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -6,7 +7,6 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   preload() {
-    // 로딩 바 표시
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
@@ -28,13 +28,13 @@ export class PreloadScene extends Phaser.Scene {
       barBg.destroy();
       bar.destroy();
     });
-
-    // 향후 에셋 로드는 여기에 추가
-    // this.load.image('gem_red', 'assets/images/gems/red.png');
-    // this.load.audio('match', ['assets/audio/match.mp3', 'assets/audio/match.ogg']);
   }
 
   create() {
+    // 젬 텍스처 사전 생성
+    generateGemTextures(this);
+    generateSpecialTextures(this);
+
     this.scene.start('Menu');
   }
 }

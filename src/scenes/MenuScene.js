@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
 import { SaveManager } from '../managers/SaveManager.js';
 import { audioManager } from '../managers/AudioManager.js';
+import { UIButton } from '../ui/UIButton.js';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -32,42 +33,28 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // 플레이 버튼
-    const playBtn = this.add.rectangle(cx, cy, 280, 70, 0x2ecc71, 1)
-      .setStrokeStyle(3, 0x27ae60)
-      .setInteractive({ useHandCursor: true });
-
-    this.add.text(cx, cy, '플레이', {
+    new UIButton(this, cx, cy, 280, 70, {
+      text: '플레이',
       fontSize: '34px',
-      fontStyle: 'bold',
-      color: '#ffffff',
-    }).setOrigin(0.5);
-
-    playBtn.on('pointerover', () => playBtn.setFillStyle(0x27ae60));
-    playBtn.on('pointerout', () => playBtn.setFillStyle(0x2ecc71));
-    playBtn.on('pointerup', () => {
-      audioManager.unlock();
-      audioManager.playClick();
-      audioManager.startBGM();
-      this.scene.start('LevelSelect');
+      bgColor: 0x2ecc71,
+      onClick: () => {
+        audioManager.unlock();
+        audioManager.playClick();
+        audioManager.startBGM();
+        this.scene.start('LevelSelect');
+      },
     });
 
     // 설정 버튼
-    const settingsBtn = this.add.rectangle(cx, cy + 100, 280, 70, 0x7f8c8d, 1)
-      .setStrokeStyle(3, 0x6c7a89)
-      .setInteractive({ useHandCursor: true });
-
-    this.add.text(cx, cy + 100, '설정', {
+    new UIButton(this, cx, cy + 100, 280, 70, {
+      text: '설정',
       fontSize: '34px',
-      fontStyle: 'bold',
-      color: '#ffffff',
-    }).setOrigin(0.5);
-
-    settingsBtn.on('pointerover', () => settingsBtn.setFillStyle(0x95a5a6));
-    settingsBtn.on('pointerout', () => settingsBtn.setFillStyle(0x7f8c8d));
-    settingsBtn.on('pointerup', () => {
-      audioManager.unlock();
-      audioManager.playClick();
-      this.scene.start('Settings');
+      bgColor: 0x7f8c8d,
+      onClick: () => {
+        audioManager.unlock();
+        audioManager.playClick();
+        this.scene.start('Settings');
+      },
     });
 
     // 버전 표시

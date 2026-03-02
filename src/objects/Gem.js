@@ -2,12 +2,6 @@ import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
 
 const SHAPE_ICONS = ['●', '◆', '▲', '■', '★', '♥'];
-const SPECIAL_ICONS = {
-  rocket_h: '⟷',
-  rocket_v: '⟷',   // 세로로 회전해서 표시
-  bomb: '💣',
-  rainbow: '🌈',
-};
 
 export class Gem {
   constructor(scene, row, col, colorIndex) {
@@ -17,23 +11,25 @@ export class Gem {
     this.colorIndex = colorIndex;
     this.color = colorIndex >= 0 ? GAME_CONFIG.COLORS[colorIndex] : null;
     this.isSpecial = false;
-    this.specialType = null;   // 'rocket_h' | 'rocket_v' | 'bomb' | 'rainbow'
+    this.specialType = null;
     this.isDestroying = false;
+    this.rocketIndicators = null;
 
     const { GEM_SIZE, CELL_SIZE, OFFSET_X, OFFSET_Y } = GAME_CONFIG.BOARD;
     const x = OFFSET_X + col * CELL_SIZE + GEM_SIZE / 2;
     const y = OFFSET_Y + row * CELL_SIZE + GEM_SIZE / 2;
-    const hex = colorIndex >= 0 ? GAME_CONFIG.COLOR_HEX[this.color] : 0xffffff;
 
-    // 베이스 사각형
-    this.sprite = scene.add.rectangle(x, y, GEM_SIZE - 6, GEM_SIZE - 6, hex, 1)
-      .setStrokeStyle(2, 0xffffff, 0.2);
+    // 베이스 — 사전 생성된 텍스처 사용
+    const textureKey = colorIndex >= 0 ? `gem_${this.color}` : 'special_rainbow';
+    this.sprite = scene.add.image(x, y, textureKey);
 
-    // 접근성 아이콘
+    // 접근성 아이콘 (은은하게)
     this.icon = scene.add.text(x, y, colorIndex >= 0 ? SHAPE_ICONS[colorIndex] : '', {
-      fontSize: '22px',
+      fontSize: '18px',
       color: '#ffffff',
-    }).setOrigin(0.5).setAlpha(0.6);
+      stroke: '#000000',
+      strokeThickness: 1,
+    }).setOrigin(0.5).setAlpha(0.3);
 
     // 특수 블록 오버레이 (처음엔 숨김)
     this.specialOverlay = scene.add.text(x, y, '', {
@@ -41,12 +37,11 @@ export class Gem {
       color: '#ffffff',
     }).setOrigin(0.5).setAlpha(0).setDepth(1);
 
-    // 특수 블록 발광 효과
-    this.glowRect = scene.add.rectangle(x, y, GEM_SIZE - 2, GEM_SIZE - 2, 0xffffff, 0)
-      .setStrokeStyle(0).setDepth(0);
+    // 발광 링 (특수블록용)
+    this.glowRect = scene.add.rectangle(x, y, GEM_SIZE + 4, GEM_SIZE + 4, 0xffffff, 0)
+      .setStrokeStyle(0).setDepth(-1);
   }
 
-  /** 격자 위치 → 화면 좌표 */
   static getPixelPos(row, col) {
     const { GEM_SIZE, CELL_SIZE, OFFSET_X, OFFSET_Y } = GAME_CONFIG.BOARD;
     return {
@@ -55,51 +50,100 @@ export class Gem {
     };
   }
 
-  /** 모든 비주얼 요소 목록 (트윈 대상) */
   get allTargets() {
-    return [this.sprite, this.icon, this.specialOverlay, this.glowRect];
+    const targets = [this.sprite, this.icon, this.specialOverlay, this.glowRect];
+    if (this.rocketIndicators) {
+      targets.push(...this.rocketIndicators);
+    }
+    return targets.filter(t => t && t.active);
   }
 
   // ─── 특수 블록 변환 ────────────────────────────
 
-  /** 일반 → 특수 블록으로 변환 */
   makeSpecial(type) {
     this.isSpecial = true;
     this.specialType = type;
 
     if (type === 'rainbow') {
-      // 무지개: 색상 없음, 무지개 색 반복 애니메이션
       this.colorIndex = -1;
       this.color = null;
-      this.sprite.setFillStyle(0xffffff, 0.9);
-      this.sprite.setStrokeStyle(3, 0xf1c40f, 1);
-      this.icon.setText('🌈');
-      this.icon.setAlpha(1).setFontSize(30);
+      this.sprite.setTexture('special_rainbow');
+      this.icon.setText('🌈').setAlpha(0.8).setFontSize(26);
       this.specialOverlay.setAlpha(0);
+      this._startGlow(0xf1c40f);
       this._startRainbowPulse();
-    } else {
-      // 로켓/폭탄: 색상 유지 + 오버레이
-      this.sprite.setStrokeStyle(3, 0xffffff, 0.9);
-
-      if (type === 'rocket_h') {
-        this.specialOverlay.setText('↔').setAlpha(1).setFontSize(26);
-      } else if (type === 'rocket_v') {
-        this.specialOverlay.setText('↕').setAlpha(1).setFontSize(26);
-      } else if (type === 'bomb') {
-        this.specialOverlay.setText('✦').setAlpha(1).setFontSize(24);
-        this.sprite.setStrokeStyle(3, 0xe74c3c, 1);
-      }
-
-      this._startSpecialPulse();
+    } else if (type === 'rocket_h' || type === 'rocket_v') {
+      const dir = type === 'rocket_h' ? 'h' : 'v';
+      this.sprite.setTexture(`special_rocket_${dir}_${this.color}`);
+      this.icon.setAlpha(0.2);
+      this.specialOverlay.setAlpha(0);
+      this._startGlow(0xffffff);
+      this._startRocketAnim();
+    } else if (type === 'bomb') {
+      this.sprite.setTexture(`special_bomb_${this.color}`);
+      this.icon.setAlpha(0.15);
+      this.specialOverlay.setAlpha(0);
+      this._startGlow(0xff4444);
+      this._startBombPulse();
     }
   }
 
-  _startSpecialPulse() {
-    this.glowRect.setStrokeStyle(2, 0xffffff, 0.5);
+  _startGlow(color) {
+    this.glowRect.setStrokeStyle(2.5, color, 0.6);
+    this.glowRect.setFillStyle(color, 0);
     this.scene.tweens.add({
       targets: this.glowRect,
-      alpha: 0.3,
-      duration: 600,
+      alpha: { from: 0.5, to: 0.1 },
+      scaleX: { from: 1, to: 1.1 },
+      scaleY: { from: 1, to: 1.1 },
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  _startRocketAnim() {
+    const { x, y } = this.sprite;
+    const isH = this.specialType === 'rocket_h';
+    const GS = GAME_CONFIG.BOARD.GEM_SIZE;
+
+    this.rocketIndicators = [];
+    const chars = isH ? ['◄', '►'] : ['▲', '▼'];
+    const positions = isH
+      ? [{ dx: -GS / 2 + 2, dy: 0 }, { dx: GS / 2 - 2, dy: 0 }]
+      : [{ dx: 0, dy: -GS / 2 + 2 }, { dx: 0, dy: GS / 2 - 2 }];
+
+    positions.forEach(({ dx, dy }, i) => {
+      const ind = this.scene.add.text(x + dx, y + dy, chars[i], {
+        fontSize: '11px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 1,
+      }).setOrigin(0.5).setAlpha(0.7).setDepth(2);
+
+      const prop = isH ? 'x' : 'y';
+      const base = isH ? x + dx : y + dy;
+      this.scene.tweens.add({
+        targets: ind,
+        [prop]: base + (i === 0 ? -5 : 5),
+        alpha: 0.2,
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+
+      this.rocketIndicators.push(ind);
+    });
+  }
+
+  _startBombPulse() {
+    this.scene.tweens.add({
+      targets: [this.sprite, this.icon],
+      scaleX: { from: 1, to: 1.05 },
+      scaleY: { from: 1, to: 1.05 },
+      duration: 500,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
@@ -113,8 +157,8 @@ export class Gem {
       delay: 300,
       loop: true,
       callback: () => {
-        if (this.sprite && this.sprite.active) {
-          this.sprite.setStrokeStyle(3, colors[ci % colors.length], 1);
+        if (this.glowRect && this.glowRect.active) {
+          this.glowRect.setStrokeStyle(2.5, colors[ci % colors.length], 0.6);
           ci++;
         }
       },
@@ -139,20 +183,19 @@ export class Gem {
 
   setSelected(selected) {
     if (selected) {
-      this.sprite.setStrokeStyle(3, 0xffffff, 1);
+      this.sprite.setTint(0xcccccc);
       this.scene.tweens.add({
         targets: this.allTargets,
-        scaleX: 1.1, scaleY: 1.1,
+        scaleX: 1.12, scaleY: 1.12,
         duration: 100, ease: 'Power1',
       });
     } else {
-      const strokeColor = this.isSpecial && this.specialType === 'bomb' ? 0xe74c3c
-        : this.isSpecial ? 0xffffff : 0xffffff;
-      const strokeAlpha = this.isSpecial ? 0.9 : 0.2;
-      this.sprite.setStrokeStyle(this.isSpecial ? 3 : 2, strokeColor, strokeAlpha);
+      this.sprite.clearTint();
+      // 특수블록은 고유 스케일 유지
+      const baseScale = 1;
       this.scene.tweens.add({
         targets: this.allTargets,
-        scaleX: 1, scaleY: 1,
+        scaleX: baseScale, scaleY: baseScale,
         duration: 100, ease: 'Power1',
       });
     }
@@ -179,9 +222,12 @@ export class Gem {
   }
 
   _cleanup() {
-    if (this.sprite && this.sprite.active) this.sprite.destroy();
-    if (this.icon && this.icon.active) this.icon.destroy();
-    if (this.specialOverlay && this.specialOverlay.active) this.specialOverlay.destroy();
-    if (this.glowRect && this.glowRect.active) this.glowRect.destroy();
+    [this.sprite, this.icon, this.specialOverlay, this.glowRect].forEach(obj => {
+      if (obj && obj.active) obj.destroy();
+    });
+    if (this.rocketIndicators) {
+      this.rocketIndicators.forEach(ind => { if (ind && ind.active) ind.destroy(); });
+      this.rocketIndicators = null;
+    }
   }
 }

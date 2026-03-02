@@ -3,6 +3,7 @@ import { GAME_CONFIG } from '../config.js';
 import { LevelManager } from '../managers/LevelManager.js';
 import { SaveManager } from '../managers/SaveManager.js';
 import { audioManager } from '../managers/AudioManager.js';
+import { UIButton } from '../ui/UIButton.js';
 
 export class ResultScene extends Phaser.Scene {
   constructor() {
@@ -31,10 +32,13 @@ export class ResultScene extends Phaser.Scene {
     // 배경 어둡게
     this.add.rectangle(cx, cy, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0.4);
 
-    // 결과 패널
+    // 결과 패널 (둥근 모서리)
     const panelH = this.cleared ? 450 : 380;
-    this.add.rectangle(cx, cy, 440, panelH, 0x1a1a2e, 0.95)
-      .setStrokeStyle(3, this.cleared ? 0xf1c40f : 0xe74c3c);
+    const panel = this.add.graphics();
+    panel.fillStyle(0x1a1a2e, 0.95);
+    panel.fillRoundedRect(cx - 220, cy - panelH / 2, 440, panelH, 20);
+    panel.lineStyle(3, this.cleared ? 0xf1c40f : 0xe74c3c, 1);
+    panel.strokeRoundedRect(cx - 220, cy - panelH / 2, 440, panelH, 20);
 
     // 타이틀
     const title = this.cleared ? '레벨 클리어!' : '실패...';
@@ -64,85 +68,67 @@ export class ResultScene extends Phaser.Scene {
         });
       }
 
-      // 점수
       this.add.text(cx, cy - panelH / 2 + 155, `점수: ${this.score}`, {
-        fontSize: '26px',
-        color: '#ffffff',
+        fontSize: '26px', color: '#ffffff',
       }).setOrigin(0.5);
 
-      // 코인 획득
       this.add.text(cx, cy - panelH / 2 + 190, `+${this.coins} 💰`, {
-        fontSize: '24px',
-        color: '#f1c40f',
+        fontSize: '24px', color: '#f1c40f',
       }).setOrigin(0.5);
 
-      // 다음 레벨 버튼
+      // 다음 레벨
       if (LevelManager.hasLevel(this.level + 1)) {
-        const nextBtn = this.add.rectangle(cx, cy + 20, 280, 60, 0x2ecc71)
-          .setInteractive({ useHandCursor: true });
-        this.add.text(cx, cy + 20, '다음 레벨', {
-          fontSize: '28px', fontStyle: 'bold', color: '#ffffff',
-        }).setOrigin(0.5);
-        nextBtn.on('pointerup', () => {
-          this.scene.start('Game', { level: this.level + 1 });
+        new UIButton(this, cx, cy + 20, 280, 60, {
+          text: '다음 레벨',
+          fontSize: '28px',
+          bgColor: 0x2ecc71,
+          onClick: () => this.scene.start('Game', { level: this.level + 1 }),
         });
       }
 
       // 재시도
-      const retryBtn = this.add.rectangle(cx, cy + 95, 280, 55, 0x3498db)
-        .setInteractive({ useHandCursor: true });
-      this.add.text(cx, cy + 95, '재시도', {
-        fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
-      }).setOrigin(0.5);
-      retryBtn.on('pointerup', () => {
-        this.scene.start('Game', { level: this.level });
+      new UIButton(this, cx, cy + 95, 280, 55, {
+        text: '재시도',
+        fontSize: '24px',
+        bgColor: 0x3498db,
+        onClick: () => this.scene.start('Game', { level: this.level }),
       });
 
     } else {
-      // 실패 화면
       this.add.text(cx, cy - panelH / 2 + 100, `점수: ${this.score}`, {
-        fontSize: '26px',
-        color: '#ffffff',
+        fontSize: '26px', color: '#ffffff',
       }).setOrigin(0.5);
 
-      // 추가 이동 구매 버튼
+      // 추가 이동 구매
       const extraCost = GAME_CONFIG.ECONOMY.BOOSTER_EXTRA_MOVES;
       const canBuy = SaveManager.getCoins() >= extraCost;
 
-      const extraBtn = this.add.rectangle(cx, cy - 20, 280, 55, canBuy ? 0xe67e22 : 0x555555)
-        .setInteractive({ useHandCursor: canBuy });
-      this.add.text(cx, cy - 20, `+5 이동 (${extraCost}💰)`, {
-        fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
-      }).setOrigin(0.5);
-
-      if (canBuy) {
-        extraBtn.on('pointerup', () => {
-          if (SaveManager.spendCoins(extraCost)) {
-            // 같은 레벨로 돌아가되, 추가 이동 적용은 GameScene에서 처리
+      new UIButton(this, cx, cy - 20, 280, 55, {
+        text: `+5 이동 (${extraCost}💰)`,
+        fontSize: '22px',
+        bgColor: canBuy ? 0xe67e22 : 0x555555,
+        onClick: () => {
+          if (canBuy && SaveManager.spendCoins(extraCost)) {
             this.scene.start('Game', { level: this.level });
           }
-        });
-      }
+        },
+      });
 
       // 재시도
-      const retryBtn = this.add.rectangle(cx, cy + 50, 280, 55, 0x3498db)
-        .setInteractive({ useHandCursor: true });
-      this.add.text(cx, cy + 50, '재시도', {
-        fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
-      }).setOrigin(0.5);
-      retryBtn.on('pointerup', () => {
-        this.scene.start('Game', { level: this.level });
+      new UIButton(this, cx, cy + 50, 280, 55, {
+        text: '재시도',
+        fontSize: '24px',
+        bgColor: 0x3498db,
+        onClick: () => this.scene.start('Game', { level: this.level }),
       });
     }
 
-    // 레벨 선택 (공통)
-    const selectBtn = this.add.rectangle(cx, cy + panelH / 2 - 45, 280, 55, 0x7f8c8d)
-      .setInteractive({ useHandCursor: true });
-    this.add.text(cx, cy + panelH / 2 - 45, '레벨 선택', {
-      fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5);
-    selectBtn.on('pointerup', () => {
-      this.scene.start('LevelSelect');
+    // 레벨 선택
+    new UIButton(this, cx, cy + panelH / 2 - 45, 280, 55, {
+      text: '레벨 선택',
+      fontSize: '24px',
+      bgColor: 0x7f8c8d,
+      onClick: () => this.scene.start('LevelSelect'),
     });
   }
 }

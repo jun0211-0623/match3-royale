@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
 import { audioManager } from '../managers/AudioManager.js';
+import { UIButton } from '../ui/UIButton.js';
 
 export class SettingsScene extends Phaser.Scene {
   constructor() {
@@ -24,19 +25,16 @@ export class SettingsScene extends Phaser.Scene {
       color: '#ffffff',
     }).setOrigin(0.5);
 
-    // 사운드 토글 (Phase 5에서 실제 구현)
+    // 사운드 토글
     this.createToggle('사운드', 200, 'soundOn', true);
     this.createToggle('BGM', 280, 'bgmOn', true);
 
     // 데이터 초기화 버튼
-    const resetBtn = this.add.rectangle(cx, 400, 240, 50, 0xe74c3c)
-      .setInteractive({ useHandCursor: true });
-    this.add.text(cx, 400, '데이터 초기화', {
-      fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5);
-
-    resetBtn.on('pointerup', () => {
-      this.showResetConfirm();
+    new UIButton(this, cx, 400, 240, 50, {
+      text: '데이터 초기화',
+      fontSize: '22px',
+      bgColor: 0xe74c3c,
+      onClick: () => this.showResetConfirm(),
     });
 
     // 버전 정보
@@ -60,23 +58,23 @@ export class SettingsScene extends Phaser.Scene {
       if (stored !== null) value = stored === 'true';
     } catch (e) { /* ignore */ }
 
-    const toggle = this.add.rectangle(cx + 120, y, 100, 44, value ? 0x2ecc71 : 0xe74c3c)
-      .setInteractive({ useHandCursor: true });
-    const toggleLabel = this.add.text(cx + 120, y, value ? 'ON' : 'OFF', {
-      fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5);
-
-    toggle.on('pointerup', () => {
-      if (key === 'soundOn') {
-        value = audioManager.toggleSound();
-      } else if (key === 'bgmOn') {
-        value = audioManager.toggleBGM();
-      } else {
-        value = !value;
-        try { localStorage.setItem(`match3_${key}`, String(value)); } catch (e) { /* ignore */ }
-      }
-      toggle.setFillStyle(value ? 0x2ecc71 : 0xe74c3c);
-      toggleLabel.setText(value ? 'ON' : 'OFF');
+    const toggleBtn = new UIButton(this, cx + 120, y, 100, 44, {
+      text: value ? 'ON' : 'OFF',
+      fontSize: '22px',
+      bgColor: value ? 0x2ecc71 : 0xe74c3c,
+      radius: 12,
+      onClick: () => {
+        if (key === 'soundOn') {
+          value = audioManager.toggleSound();
+        } else if (key === 'bgmOn') {
+          value = audioManager.toggleBGM();
+        } else {
+          value = !value;
+          try { localStorage.setItem(`match3_${key}`, String(value)); } catch (e) { /* ignore */ }
+        }
+        toggleBtn.setColor(value ? 0x2ecc71 : 0xe74c3c);
+        toggleBtn.setText(value ? 'ON' : 'OFF');
+      },
     });
   }
 
@@ -87,8 +85,13 @@ export class SettingsScene extends Phaser.Scene {
 
     const overlay = this.add.rectangle(cx, cy, WIDTH, HEIGHT, 0x000000, 0.7)
       .setDepth(50).setInteractive();
-    const panel = this.add.rectangle(cx, cy, 380, 200, 0x1a1a2e, 0.95)
-      .setStrokeStyle(3, 0xe74c3c).setDepth(51);
+
+    const panel = this.add.graphics().setDepth(51);
+    panel.fillStyle(0x1a1a2e, 0.95);
+    panel.fillRoundedRect(cx - 190, cy - 100, 380, 200, 20);
+    panel.lineStyle(3, 0xe74c3c, 1);
+    panel.strokeRoundedRect(cx - 190, cy - 100, 380, 200, 20);
+
     const text = this.add.text(cx, cy - 50, '모든 데이터를 삭제하시겠습니까?', {
       fontSize: '20px', color: '#ffffff', align: 'center',
     }).setOrigin(0.5).setDepth(52);
@@ -96,32 +99,24 @@ export class SettingsScene extends Phaser.Scene {
       fontSize: '16px', color: '#e74c3c',
     }).setOrigin(0.5).setDepth(52);
 
-    const elements = [overlay, panel, text, sub];
-
-    const confirmBtn = this.add.rectangle(cx - 70, cy + 40, 120, 45, 0xe74c3c)
-      .setDepth(52).setInteractive({ useHandCursor: true });
-    const confirmLabel = this.add.text(cx - 70, cy + 40, '삭제', {
-      fontSize: '20px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(53);
-
-    confirmBtn.on('pointerup', () => {
-      try { localStorage.removeItem('match3royale_save'); } catch (e) { /* ignore */ }
-      elements.forEach(el => el.destroy());
-      confirmBtn.destroy(); confirmLabel.destroy();
-      cancelBtn.destroy(); cancelLabel.destroy();
-      this.scene.restart();
+    const confirmBtn = new UIButton(this, cx - 70, cy + 50, 120, 45, {
+      text: '삭제', fontSize: '20px', bgColor: 0xe74c3c, depth: 52,
+      onClick: () => {
+        try { localStorage.removeItem('match3royale_save'); } catch (e) { /* ignore */ }
+        cleanup();
+        this.scene.restart();
+      },
     });
 
-    const cancelBtn = this.add.rectangle(cx + 70, cy + 40, 120, 45, 0x2ecc71)
-      .setDepth(52).setInteractive({ useHandCursor: true });
-    const cancelLabel = this.add.text(cx + 70, cy + 40, '취소', {
-      fontSize: '20px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(53);
-
-    cancelBtn.on('pointerup', () => {
-      elements.forEach(el => el.destroy());
-      confirmBtn.destroy(); confirmLabel.destroy();
-      cancelBtn.destroy(); cancelLabel.destroy();
+    const cancelBtn = new UIButton(this, cx + 70, cy + 50, 120, 45, {
+      text: '취소', fontSize: '20px', bgColor: 0x2ecc71, depth: 52,
+      onClick: () => { cleanup(); },
     });
+
+    const cleanup = () => {
+      [overlay, panel, text, sub].forEach(el => el.destroy());
+      confirmBtn.destroy();
+      cancelBtn.destroy();
+    };
   }
 }
