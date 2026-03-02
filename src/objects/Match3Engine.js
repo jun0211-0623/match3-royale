@@ -17,6 +17,7 @@ export class Match3Engine {
     this.onMatchFound = null;
     this.onMoveUsed = null;
     this.onNoValidMoves = null;
+    this.onGemDestroyed = null; // (colorName) => {} 목표 추적용
   }
 
   // ═══ 블록 교환 ═════════════════════════════════
@@ -316,6 +317,11 @@ export class Match3Engine {
         return;
       }
 
+      // 목표 추적
+      if (this.onGemDestroyed && gem.color) {
+        this.onGemDestroyed(gem.color);
+      }
+
       // 이펙트
       const hex = gem.color ? GAME_CONFIG.COLOR_HEX[gem.color] : 0xffffff;
       this.effects.gemDestroy(row, col, hex);
@@ -457,6 +463,9 @@ export class Match3Engine {
         if (destroyed >= total) this.onAllDestroyed();
         return;
       }
+      if (this.onGemDestroyed && gem.color) {
+        this.onGemDestroyed(gem.color);
+      }
       this.effects.gemDestroy(row, col, hex);
       gem.destroy(() => {
         destroyed++;
@@ -594,6 +603,9 @@ export class Match3Engine {
         destroyed++;
         if (destroyed >= total) this.onAllDestroyed();
         return;
+      }
+      if (this.onGemDestroyed && gem.color) {
+        this.onGemDestroyed(gem.color);
       }
       const hex = gem.color ? GAME_CONFIG.COLOR_HEX[gem.color] : 0xffffff;
       this.effects.gemDestroy(r, c, hex);

@@ -37,4 +37,12 @@ export const GAME_CONFIG = {
     MATCH_5: 500,
     COMBO_BASE: 1.5,
   },
+
+  ECONOMY: {
+    INITIAL_COINS: 500,
+    BOOSTER_HAMMER: 100,
+    BOOSTER_SHUFFLE: 80,
+    BOOSTER_EXTRA_MOVES: 150,
+    EXTRA_MOVES_COUNT: 5,
+  },
 };

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
+import { SaveManager } from '../managers/SaveManager.js';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -11,18 +12,31 @@ export class MenuScene extends Phaser.Scene {
     const cy = GAME_CONFIG.HEIGHT / 2;
 
     // 타이틀
-    this.add.text(cx, cy - 200, '매치3 퍼즐', {
-      fontSize: '64px',
+    this.add.text(cx, cy - 250, '매치3', {
+      fontSize: '72px',
+      fontStyle: 'bold',
+      color: '#f1c40f',
+    }).setOrigin(0.5);
+
+    this.add.text(cx, cy - 180, 'ROYALE', {
+      fontSize: '48px',
       fontStyle: 'bold',
       color: '#ffffff',
     }).setOrigin(0.5);
 
+    // 코인 표시
+    this.add.text(cx, cy - 110, `💰 ${SaveManager.getCoins()}`, {
+      fontSize: '24px',
+      color: '#f1c40f',
+    }).setOrigin(0.5);
+
     // 플레이 버튼
-    const playBtn = this.add.rectangle(cx, cy, 240, 70, 0x2ecc71, 1)
+    const playBtn = this.add.rectangle(cx, cy, 280, 70, 0x2ecc71, 1)
+      .setStrokeStyle(3, 0x27ae60)
       .setInteractive({ useHandCursor: true });
 
     this.add.text(cx, cy, '플레이', {
-      fontSize: '32px',
+      fontSize: '34px',
       fontStyle: 'bold',
       color: '#ffffff',
     }).setOrigin(0.5);
@@ -34,11 +48,12 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // 설정 버튼
-    const settingsBtn = this.add.rectangle(cx, cy + 100, 240, 70, 0x7f8c8d, 1)
+    const settingsBtn = this.add.rectangle(cx, cy + 100, 280, 70, 0x7f8c8d, 1)
+      .setStrokeStyle(3, 0x6c7a89)
       .setInteractive({ useHandCursor: true });
 
     this.add.text(cx, cy + 100, '설정', {
-      fontSize: '32px',
+      fontSize: '34px',
       fontStyle: 'bold',
       color: '#ffffff',
     }).setOrigin(0.5);
