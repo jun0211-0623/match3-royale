@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
 import { LevelManager } from '../managers/LevelManager.js';
 import { SaveManager } from '../managers/SaveManager.js';
+import { audioManager } from '../managers/AudioManager.js';
 
 export class ResultScene extends Phaser.Scene {
   constructor() {
@@ -19,6 +20,13 @@ export class ResultScene extends Phaser.Scene {
   create() {
     const cx = GAME_CONFIG.WIDTH / 2;
     const cy = GAME_CONFIG.HEIGHT / 2;
+
+    // 사운드
+    if (this.cleared) {
+      audioManager.playClear();
+    } else {
+      audioManager.playFail();
+    }
 
     // 배경 어둡게
     this.add.rectangle(cx, cy, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0.4);

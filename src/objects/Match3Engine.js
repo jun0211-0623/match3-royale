@@ -18,6 +18,9 @@ export class Match3Engine {
     this.onMoveUsed = null;
     this.onNoValidMoves = null;
     this.onGemDestroyed = null; // (colorName) => {} 목표 추적용
+    this.onInvalidSwap = null;  // () => {} 잘못된 스와이프
+    this.onSpecialCreated = null; // () => {} 특수블록 생성
+    this.onSpecialExploded = null; // () => {} 특수블록 폭발
   }
 
   // ═══ 블록 교환 ═════════════════════════════════
@@ -88,6 +91,7 @@ export class Match3Engine {
         this.processMatchGroups(matchGroups);
       } else {
         // 되돌리기
+        if (this.onInvalidSwap) this.onInvalidSwap();
         this.board.swapInGrid(gem1, gem2);
         let rev = 0;
         const onRev = () => { rev++; if (rev >= 2) this.isProcessing = false; };
@@ -345,6 +349,9 @@ export class Match3Engine {
 
   /** 특수블록 생성 */
   createSpecialGems(specials) {
+    if (specials.length > 0 && this.onSpecialCreated) {
+      this.onSpecialCreated();
+    }
     specials.forEach(({ type, row, col, colorIndex }) => {
       // 기존 블록이 있으면 제거
       const existing = this.board.getGem(row, col);
@@ -409,6 +416,7 @@ export class Match3Engine {
 
   /** 특수블록 비주얼 이펙트 */
   playSpecialEffect(gem) {
+    if (this.onSpecialExploded) this.onSpecialExploded();
     switch (gem.specialType) {
       case 'rocket_h':
         this.effects.rocketExplode(gem.row, gem.col, 'h');

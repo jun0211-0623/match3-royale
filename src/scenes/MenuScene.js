@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
 import { SaveManager } from '../managers/SaveManager.js';
+import { audioManager } from '../managers/AudioManager.js';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -44,6 +45,9 @@ export class MenuScene extends Phaser.Scene {
     playBtn.on('pointerover', () => playBtn.setFillStyle(0x27ae60));
     playBtn.on('pointerout', () => playBtn.setFillStyle(0x2ecc71));
     playBtn.on('pointerup', () => {
+      audioManager.unlock();
+      audioManager.playClick();
+      audioManager.startBGM();
       this.scene.start('LevelSelect');
     });
 
@@ -61,6 +65,8 @@ export class MenuScene extends Phaser.Scene {
     settingsBtn.on('pointerover', () => settingsBtn.setFillStyle(0x95a5a6));
     settingsBtn.on('pointerout', () => settingsBtn.setFillStyle(0x7f8c8d));
     settingsBtn.on('pointerup', () => {
+      audioManager.unlock();
+      audioManager.playClick();
       this.scene.start('Settings');
     });
 

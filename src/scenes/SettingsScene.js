@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
+import { audioManager } from '../managers/AudioManager.js';
 
 export class SettingsScene extends Phaser.Scene {
   constructor() {
@@ -66,10 +67,16 @@ export class SettingsScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     toggle.on('pointerup', () => {
-      value = !value;
+      if (key === 'soundOn') {
+        value = audioManager.toggleSound();
+      } else if (key === 'bgmOn') {
+        value = audioManager.toggleBGM();
+      } else {
+        value = !value;
+        try { localStorage.setItem(`match3_${key}`, String(value)); } catch (e) { /* ignore */ }
+      }
       toggle.setFillStyle(value ? 0x2ecc71 : 0xe74c3c);
       toggleLabel.setText(value ? 'ON' : 'OFF');
-      try { localStorage.setItem(`match3_${key}`, String(value)); } catch (e) { /* ignore */ }
     });
   }
 

@@ -6,6 +6,8 @@ import { LevelManager } from '../managers/LevelManager.js';
 import { GoalManager } from '../managers/GoalManager.js';
 import { SaveManager } from '../managers/SaveManager.js';
 import { BoosterManager, BOOSTERS } from '../managers/BoosterManager.js';
+import { audioManager } from '../managers/AudioManager.js';
+import { HintManager } from '../managers/HintManager.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -146,6 +148,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     this.engine.onMatchFound = (matches, combo) => {
+      audioManager.playMatch(combo);
       if (matches.length > 0) {
         const { row, col } = matches[0];
         const pos = this.gridToPixel(row, col);
@@ -156,6 +159,24 @@ export class GameScene extends Phaser.Scene {
     this.engine.onGemDestroyed = (colorName) => {
       this.goalManager.onGemDestroyed(colorName);
     };
+
+    this.engine.onInvalidSwap = () => {
+      audioManager.playInvalidSwap();
+      // 카메라 살짝 흔들기
+      this.cameras.main.shake(100, 0.003);
+    };
+
+    this.engine.onSpecialCreated = () => {
+      audioManager.playSpecialCreate();
+    };
+
+    this.engine.onSpecialExploded = () => {
+      audioManager.playSpecialExplode();
+    };
+
+    // ─── 힌트 시스템 ───────────────────────────
+
+    this.hintManager = new HintManager(this, this.engine);
 
     // ─── 부스터 UI (보드 아래) ─────────────────
 
@@ -201,6 +222,9 @@ export class GameScene extends Phaser.Scene {
       } else {
         this.engine.comboCount = 0;
         this.engine.isProcessing = false;
+
+        // 힌트 타이머 재시작
+        if (this.hintManager) this.hintManager.resetTimer();
 
         // 목표 달성 (이미 onGoalUpdate에서 처리하지만 이중 체크)
         if (this.goalManager.isAllGoalsComplete()) {
@@ -298,8 +322,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   onPointerDown(pointer) {
+    audioManager.unlock(); // 모바일 오디오 unlock
     if (this.engine.isProcessing) return;
     if (this._paused) return;
+
+    // 힌트 리셋
+    if (this.hintManager) this.hintManager.resetTimer();
 
     const { row, col } = this.pixelToGrid(pointer.x, pointer.y);
     if (!this.isValidCell(row, col)) return;
@@ -347,11 +375,13 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (this.isValidCell(targetRow, targetCol)) {
+        audioManager.playSwipe();
         this.engine.swapGems(this.selectedGem, { row: targetRow, col: targetCol });
       }
     } else {
       const { row, col } = this.pixelToGrid(pointer.x, pointer.y);
       if (this.prevTap && (Math.abs(this.prevTap.row - row) + Math.abs(this.prevTap.col - col) === 1)) {
+        audioManager.playSwipe();
         this.engine.swapGems(this.prevTap, { row, col });
         this.prevTap = null;
       } else {
