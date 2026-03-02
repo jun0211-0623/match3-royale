@@ -107,22 +107,14 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', this.onPointerDown, this);
     this.input.on('pointerup', this.onPointerUp, this);
 
-    // ─── 게임 오버 체크 (이동 횟수 소진 시) ────
+    // ─── 연쇄 종료 후 게임 오버 체크 ────
 
-    this.engine.onMoveUsed = () => {
-      this.movesLeft--;
-      this.movesText.setText(`남은 이동: ${this.movesLeft}`);
-      if (this.movesLeft <= 3) {
-        this.movesText.setColor('#e74c3c');
-      }
-    };
-
-    // 연쇄 종료 후 이동 횟수 체크 (checkCascade가 끝난 뒤)
     const originalCheckCascade = this.engine.checkCascade.bind(this.engine);
     this.engine.checkCascade = () => {
-      const matches = this.engine.findMatches();
-      if (matches.length > 0) {
-        this.engine.processMatches(matches);
+      this.engine.lastSwapPos = null;
+      const groups = this.engine.findMatchGroups();
+      if (groups.length > 0) {
+        this.engine.processMatchGroups(groups);
       } else {
         this.engine.comboCount = 0;
         this.engine.isProcessing = false;
