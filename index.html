@@ -3,7 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>매치3 퍼즐</title>
+  <meta name="description" content="매치3 퍼즐 게임 - 로얄매치 스타일 웹 게임">
+  <meta name="theme-color" content="#1a1a2e">
+
+  <!-- iOS 웹앱 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="매치3 로얄">
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json">
+
+  <!-- OG (공유 시) -->
+  <meta property="og:title" content="매치3 로얄">
+  <meta property="og:description" content="로얄매치 스타일 매치3 퍼즐 게임">
+  <meta property="og:type" content="website">
+
+  <title>매치3 로얄</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -14,16 +30,50 @@
       touch-action: none;
       -webkit-tap-highlight-color: transparent;
       overscroll-behavior: none;
+      -webkit-overflow-scrolling: touch;
+      /* iOS Safari 바운스 스크롤 방지 */
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
     }
     #game-container {
       width: 100vw;
       height: 100vh;
+      /* safe-area 대응 (노치, Dynamic Island) */
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+
+    /* 가로 모드 경고 */
+    #rotate-warning {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #1a1a2e;
+      color: #ffffff;
+      z-index: 9999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+    }
+    #rotate-warning .icon { font-size: 64px; margin-bottom: 20px; }
+    #rotate-warning .text { font-size: 22px; }
+
+    @media (orientation: landscape) and (max-height: 500px) {
+      #rotate-warning { display: flex; }
+      #game-container { display: none; }
     }
   </style>
 </head>
 <body>
+  <!-- 가로 모드 경고 -->
+  <div id="rotate-warning">
+    <div class="icon">📱</div>
+    <div class="text">세로 모드로 회전해주세요</div>
+  </div>
+
   <div id="game-container"></div>
   <script type="module" src="/src/main.js"></script>
 </body>

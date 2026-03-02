@@ -21,6 +21,18 @@ const config = {
 
   backgroundColor: '#1a1a2e',
 
+  // 입력 설정
+  input: {
+    activePointers: 1,  // 싱글 터치만 (멀티터치 방지)
+  },
+
+  // 렌더링 성능
+  render: {
+    antialias: false,       // 모바일 성능
+    pixelArt: false,
+    roundPixels: true,      // 서브픽셀 방지
+  },
+
   scene: [
     BootScene,
     PreloadScene,
@@ -33,3 +45,38 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
+
+// ─── 모바일 풀스크린 지원 ─────────────────────
+// 첫 터치 시 풀스크린 진입 시도 (iOS에서는 작동하지 않음)
+let fullscreenRequested = false;
+document.addEventListener('pointerup', () => {
+  if (fullscreenRequested) return;
+  fullscreenRequested = true;
+
+  const elem = document.documentElement;
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen().catch(() => {});
+  } else if (elem.webkitRequestFullscreen) {
+    elem.webkitRequestFullscreen();
+  }
+}, { once: true });
+
+// ─── 컨텍스트 메뉴 방지 (모바일 길게 누르기) ──
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ─── 더블탭 줌 방지 ──────────────────────────
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) {
+    e.preventDefault();
+  }
+  lastTouchEnd = now;
+}, { passive: false });
+
+// ─── 키보드 줌 방지 (Ctrl +/-) ─────────────
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=')) {
+    e.preventDefault();
+  }
+});
