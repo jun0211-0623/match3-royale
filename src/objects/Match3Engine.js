@@ -168,7 +168,9 @@ export class Match3Engine {
     const usedV = new Set();
 
     for (let hi = 0; hi < hRuns.length; hi++) {
+      if (usedH.has(hi)) continue;
       for (let vi = 0; vi < vRuns.length; vi++) {
+        if (usedV.has(vi)) continue;
         const hCells = hRuns[hi].cells;
         const vCells = vRuns[vi].cells;
         const hColor = this.board.getGem(hCells[0].row, hCells[0].col)?.colorIndex;
@@ -192,6 +194,7 @@ export class Match3Engine {
           });
           usedH.add(hi);
           usedV.add(vi);
+          break; // 이 H-run은 이미 사용됨
         }
       }
     }
@@ -292,7 +295,8 @@ export class Match3Engine {
       return { row: r, col: c };
     });
 
-    const baseScore = this.calculateScore(allCells.length);
+    let baseScore = 0;
+    groups.forEach(g => { baseScore += this.calculateScore(g.cells.length); });
     const multiplier = Math.pow(GAME_CONFIG.SCORE.COMBO_BASE, this.comboCount - 1);
     const points = Math.round(baseScore * multiplier);
     this.score += points;
@@ -309,6 +313,15 @@ export class Match3Engine {
       if (createPosSet.has(`${gem.row},${gem.col}`)) return; // 새로 만들 자리면 스킵
       this.getSpecialTargets(gem).forEach(c => extraCells.add(`${c.row},${c.col}`));
     });
+
+    // 특수블록 폭발 범위 인접 장애물도 데미지
+    if (extraCells.size > 0) {
+      const extraCellsArr = Array.from(extraCells).map(k => {
+        const [r, c] = k.split(',').map(Number);
+        return { row: r, col: c };
+      });
+      this._damageAdjacentObstacles(extraCellsArr);
+    }
 
     // 추가 타겟도 제거 대상에 포함
     extraCells.forEach(key => cellSet.add(key));
@@ -475,6 +488,9 @@ export class Match3Engine {
     const points = Math.round(toDestroy.length * GAME_CONFIG.SCORE.MATCH_3);
     this.score += points;
     if (this.onScoreUpdate) this.onScoreUpdate(this.score, this.comboCount);
+
+    // 무지개 폭발 범위 인접 장애물 데미지
+    this._damageAdjacentObstacles(toDestroy);
 
     let destroyed = 0;
     const total = toDestroy.length;
@@ -757,19 +773,21 @@ export class Match3Engine {
           }
         }
 
-        // 최상단 세그먼트(start === 0)만 새 젬 스폰
-        if (start === 0 && emptyRow >= 0) {
+        // 빈 칸에 새 젬 스폰 (모든 세그먼트)
+        if (emptyRow >= 0) {
           let spawnOffset = 0;
-          for (let row = emptyRow; row >= 0; row--) {
+          for (let row = emptyRow; row >= start; row--) {
             if (this.board.grid[row][col]) continue;
 
             const colorIndex = Math.floor(Math.random() * this.board.numColors);
             const gem = new Gem(this.scene, -1, col, colorIndex);
-            const startPos = Gem.getPixelPos(-1 - spawnOffset, col);
+            // 최상단 세그먼트: 보드 위에서 스폰, 하위 세그먼트: 장애물 뒤에서 스폰
+            const spawnRow = start === 0 ? (-1 - spawnOffset) : (start - 1 - spawnOffset);
+            const startPos = Gem.getPixelPos(spawnRow, col);
             gem.allTargets.forEach(t => { if (t && t.active) t.setPosition(startPos.x, startPos.y); });
 
             this.board.grid[row][col] = gem;
-            const dist = row + 1 + spawnOffset;
+            const dist = row - spawnRow;
             hasFall = true;
             fallPromises.push(new Promise(resolve => {
               gem.moveTo(row, col, dist * GAME_CONFIG.ANIM.FALL_SPEED, resolve);
@@ -883,6 +901,7 @@ export class Match3Engine {
   }
 
   shuffleBoard() {
+    this.isProcessing = true; // 셔플 중 입력 차단
     const MAX_SHUFFLE = 10;
     const { rows, cols, grid } = this.board;
     for (let attempt = 0; attempt < MAX_SHUFFLE; attempt++) {
@@ -913,8 +932,12 @@ export class Match3Engine {
         const matches = this.findMatches();
         if (matches.length > 0) {
           this.scene.time.delayedCall(GAME_CONFIG.ANIM.SWAP_SPEED + 50, () => {
-            this.isProcessing = true;
             this.processMatchGroups(this.findMatchGroups());
+          });
+        } else {
+          // 유효 이동 있지만 즉시 매치 없음 → 애니메이션 후 잠금 해제
+          this.scene.time.delayedCall(GAME_CONFIG.ANIM.SWAP_SPEED + 50, () => {
+            this.isProcessing = false;
           });
         }
         return;

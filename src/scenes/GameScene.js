@@ -512,6 +512,11 @@ export class GameScene extends Phaser.Scene {
         this.engine.swapGems(this.prevTap, { row, col });
         this.prevTap = null;
       } else {
+        // 이전 탭 선택 해제
+        if (this.prevTap) {
+          const prevGem = this.board.getGem(this.prevTap.row, this.prevTap.col);
+          if (prevGem) prevGem.setSelected(false);
+        }
         this.prevTap = { row, col };
         const gem = this.board.getGem(row, col);
         if (gem) gem.setSelected(true);
