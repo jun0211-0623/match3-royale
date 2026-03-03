@@ -13,6 +13,14 @@ export class BootScene extends Phaser.Scene {
       }
     } catch (e) { /* 지원 안 함 — 무시 */ }
 
-    this.scene.start('Preload');
+    // 게임 폰트 로딩 대기 후 시작
+    const startGame = () => {
+      if (this._started) return;
+      this._started = true;
+      this.scene.start('Preload');
+    };
+
+    document.fonts.load('16px "Jua"').then(startGame).catch(startGame);
+    setTimeout(startGame, 3000); // 3초 타임아웃 (CDN 느릴 때 폴백)
   }
 }

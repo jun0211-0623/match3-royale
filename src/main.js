@@ -46,6 +46,15 @@ const config = {
   ],
 };
 
+// ─── 글로벌 게임 폰트 적용 ─────────────────────
+const GAME_FONT = '"Jua", sans-serif';
+const _origTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
+Phaser.GameObjects.GameObjectFactory.prototype.text = function (x, y, text, style) {
+  const s = style || {};
+  if (!s.fontFamily) s.fontFamily = GAME_FONT;
+  return _origTextFactory.call(this, x, y, text, s);
+};
+
 const game = new Phaser.Game(config);
 
 // ─── 모바일 풀스크린 지원 ─────────────────────
