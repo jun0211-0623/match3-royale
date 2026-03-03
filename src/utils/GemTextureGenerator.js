@@ -1,295 +1,418 @@
 import { GAME_CONFIG } from '../config.js';
 
 const S = GAME_CONFIG.BOARD.GEM_SIZE; // 72
-const R = 14; // border radius
+const R = 17; // borderRadius: 10/42 * 72 ≈ 17 (JSX: borderRadius 10 at 42px)
 
-function lerpColor(c1, c2, t) {
-  const r = ((c1 >> 16) & 0xff) + (((c2 >> 16) & 0xff) - ((c1 >> 16) & 0xff)) * t;
-  const g = ((c1 >> 8) & 0xff) + (((c2 >> 8) & 0xff) - ((c1 >> 8) & 0xff)) * t;
-  const b = (c1 & 0xff) + ((c2 & 0xff) - (c1 & 0xff)) * t;
-  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
+// ─── Canvas 2D 유틸 ──────────────────────────────
+
+function hexToCSS(hex, alpha = 1) {
+  const r = (hex >> 16) & 0xff;
+  const g = (hex >> 8) & 0xff;
+  const b = hex & 0xff;
+  return alpha < 1 ? `rgba(${r},${g},${b},${alpha})` : `rgb(${r},${g},${b})`;
 }
 
-// ─── JSX 스타일 젬 렌더러 ──────────────────────
+function rrect(ctx, x, y, w, h, r) {
+  if (typeof r === 'number') {
+    r = { tl: r, tr: r, bl: r, br: r };
+  }
+  ctx.beginPath();
+  ctx.moveTo(x + r.tl, y);
+  ctx.lineTo(x + w - r.tr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+  ctx.lineTo(x + w, y + h - r.br);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+  ctx.lineTo(x + r.bl, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+  ctx.lineTo(x, y + r.tl);
+  ctx.quadraticCurveTo(x, y, x + r.tl, y);
+  ctx.closePath();
+}
 
-function drawGem(g, p) {
-  // 1. 드롭 섀도
-  g.fillStyle(0x000000, 0.25);
-  g.fillRoundedRect(3, 5, S - 4, S - 3, R);
+// ─── JSX 젬 렌더러 (Canvas 2D) ──────────────────
 
-  // 2. 메인 바디 (base)
-  g.fillStyle(p.base, 1);
-  g.fillRoundedRect(2, 2, S - 4, S - 4, R);
+function drawJSXGem(ctx, colors) {
+  // JSX 젬 구조:
+  // 1. background: linear-gradient(135deg, start 0%, mid 50%, end 100%)
+  // 2. boxShadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.2)
+  // 3. Shine: radial-gradient at top-left (14x14 at pos 4,3 in 42px)
+  // 4. Bottom shadow: linear-gradient(transparent, rgba(0,0,0,0.15)) bottom 40%
 
-  // 3. 135도 대각선 그라데이션 시뮬레이션
-  // 좌상단 → 메인(어두움) → 우하단(밝음)
-  // 좌상단 밝은 존
-  g.fillStyle(p.light, 0.3);
-  g.fillRoundedRect(2, 2, S * 0.55, S * 0.55, { tl: R, tr: 4, bl: 4, br: 0 });
+  ctx.clearRect(0, 0, S, S);
 
-  // 중앙 어두운 존
-  g.fillStyle(p.dark, 0.2);
-  g.fillRoundedRect(S * 0.2, S * 0.2, S * 0.6, S * 0.6, 6);
+  // Clip to rounded rect
+  ctx.save();
+  rrect(ctx, 1, 1, S - 2, S - 2, R);
+  ctx.clip();
 
-  // 우하단 밝은 존
-  g.fillStyle(p.light, 0.18);
-  g.fillRoundedRect(S * 0.45, S * 0.45, S * 0.53, S * 0.53, { tl: 0, tr: 4, bl: 4, br: R });
+  // 1. 135deg linear gradient (top-left → bottom-right)
+  const grad = ctx.createLinearGradient(0, 0, S, S);
+  grad.addColorStop(0, colors.start);
+  grad.addColorStop(0.5, colors.mid);
+  grad.addColorStop(1, colors.end);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, S, S);
 
-  // 4. 좌상단 원형 샤인 (JSX 스타일)
-  g.fillStyle(0xffffff, 0.2);
-  g.fillCircle(18, 17, 16);
-  g.fillStyle(0xffffff, 0.4);
-  g.fillCircle(16, 15, 10);
+  // 2. Top-left shine (JSX: 14x14 radial at (4,3) scaled to 72px → (6.9, 5.1) radius ~12)
+  const shineX = S * 0.095 + S * 0.167; // center X
+  const shineY = S * 0.071 + S * 0.167; // center Y
+  const shineR = S * 0.24; // outer radius
+  const shineGrad = ctx.createRadialGradient(shineX, shineY, 0, shineX, shineY, shineR);
+  shineGrad.addColorStop(0, 'rgba(255,255,255,0.5)');
+  shineGrad.addColorStop(0.7, 'rgba(255,255,255,0)');
+  ctx.fillStyle = shineGrad;
+  ctx.fillRect(0, 0, S, S);
 
-  // 5. 하단 그림자 그라데이션
-  g.fillStyle(0x000000, 0.12);
-  g.fillRoundedRect(2, S * 0.6, S - 4, S * 0.4 - 2, { tl: 0, tr: 0, bl: R, br: R });
+  // 3. Bottom shadow (JSX: bottom 40%, transparent → rgba(0,0,0,0.15))
+  const botGrad = ctx.createLinearGradient(0, S * 0.6, 0, S);
+  botGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  botGrad.addColorStop(1, 'rgba(0,0,0,0.15)');
+  ctx.fillStyle = botGrad;
+  ctx.fillRect(0, S * 0.6, S, S * 0.4);
 
-  // 6. 상단 이너 하이라이트 (inset)
-  g.fillStyle(0xffffff, 0.2);
-  g.fillRoundedRect(6, 4, S - 12, 4, 2);
+  ctx.restore(); // remove clip
 
-  // 7. 미세 보더
-  g.lineStyle(1, 0xffffff, 0.05);
-  g.strokeRoundedRect(2, 2, S - 4, S - 4, R);
+  // 4. Inset top highlight (JSX: inset 0 1px 0 rgba(255,255,255,0.3))
+  ctx.beginPath();
+  ctx.moveTo(1 + R, 2);
+  ctx.lineTo(S - 1 - R, 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 5. Subtle border
+  rrect(ctx, 1, 1, S - 2, S - 2, R);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
 }
 
 // ─── 일반 젬 텍스처 6색 생성 ─────────────────────
 
 export function generateGemTextures(scene) {
   const colors = GAME_CONFIG.COLORS;
-  const g = scene.add.graphics();
+  const gradients = GAME_CONFIG.COLOR_GRADIENT;
 
   colors.forEach((colorName) => {
-    const p = GAME_CONFIG.COLOR_PALETTE[colorName];
-    g.clear();
-    drawGem(g, p);
-    g.generateTexture(`gem_${colorName}`, S, S);
+    const g = gradients[colorName];
+    const ct = scene.textures.createCanvas(`gem_${colorName}`, S, S);
+    drawJSXGem(ct.context, g);
+    ct.refresh();
   });
-
-  g.destroy();
 }
 
-// ─── 특수 블록 텍스처 생성 ───────────────────────
+// ─── 특수 블록 텍스처 생성 (Canvas 2D) ───────────
 
 export function generateSpecialTextures(scene) {
   const colors = GAME_CONFIG.COLORS;
-  const g = scene.add.graphics();
+  const gradients = GAME_CONFIG.COLOR_GRADIENT;
   const cx = S / 2, cy = S / 2;
 
   // ── 로켓 (가로/세로 × 6색) ──
   colors.forEach((colorName) => {
-    const p = GAME_CONFIG.COLOR_PALETTE[colorName];
+    const g = gradients[colorName];
 
     ['h', 'v'].forEach((dir) => {
-      g.clear();
-      drawGem(g, p);
+      const ct = scene.textures.createCanvas(`special_rocket_${dir}_${colorName}`, S, S);
+      const ctx = ct.context;
+      drawJSXGem(ctx, g);
 
-      // 스트릭 라인
+      // Streak lines
       [{ w: 14, a: 0.1 }, { w: 8, a: 0.2 }, { w: 3, a: 0.4 }].forEach(({ w, a }) => {
-        g.fillStyle(0xffffff, a);
-        if (dir === 'h') g.fillRect(6, cy - w / 2, S - 12, w);
-        else g.fillRect(cx - w / 2, 6, w, S - 12);
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        if (dir === 'h') ctx.fillRect(6, cy - w / 2, S - 12, w);
+        else ctx.fillRect(cx - w / 2, 6, w, S - 12);
       });
 
-      // 화살표
-      g.fillStyle(0xffffff, 0.85);
+      // Arrows
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath();
       if (dir === 'h') {
-        g.fillTriangle(6, cy, 20, cy - 10, 20, cy + 10);
-        g.fillTriangle(S - 6, cy, S - 20, cy - 10, S - 20, cy + 10);
+        ctx.moveTo(6, cy); ctx.lineTo(20, cy - 10); ctx.lineTo(20, cy + 10); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(S - 6, cy); ctx.lineTo(S - 20, cy - 10); ctx.lineTo(S - 20, cy + 10); ctx.closePath(); ctx.fill();
       } else {
-        g.fillTriangle(cx, 6, cx - 10, 20, cx + 10, 20);
-        g.fillTriangle(cx, S - 6, cx - 10, S - 20, cx + 10, S - 20);
+        ctx.moveTo(cx, 6); ctx.lineTo(cx - 10, 20); ctx.lineTo(cx + 10, 20); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx, S - 6); ctx.lineTo(cx - 10, S - 20); ctx.lineTo(cx + 10, S - 20); ctx.closePath(); ctx.fill();
       }
 
-      g.lineStyle(1.5, 0xffffff, 0.4);
-      g.strokeRoundedRect(2, 2, S - 4, S - 4, R);
+      // White border
+      rrect(ctx, 2, 2, S - 4, S - 4, R);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
 
-      g.generateTexture(`special_rocket_${dir}_${colorName}`, S, S);
+      ct.refresh();
     });
   });
 
   // ── 폭탄 (6색) ──
   colors.forEach((colorName) => {
-    const p = GAME_CONFIG.COLOR_PALETTE[colorName];
-    g.clear();
-    drawGem(g, p);
+    const g = gradients[colorName];
+    const ct = scene.textures.createCanvas(`special_bomb_${colorName}`, S, S);
+    const ctx = ct.context;
+    drawJSXGem(ctx, g);
 
+    // Radial lines
     for (let i = 0; i < 12; i++) {
       const angle = (Math.PI * 2 * i) / 12;
       const thick = i % 2 === 0;
-      g.lineStyle(thick ? 2.5 : 1.5, 0xffffff, thick ? 0.6 : 0.35);
+      ctx.lineWidth = thick ? 2.5 : 1.5;
+      ctx.strokeStyle = thick ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)';
       const innerR = 7, outerR = thick ? S / 2 - 8 : S / 2 - 14;
-      g.lineBetween(
-        cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR,
-        cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR
-      );
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
+      ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
+      ctx.stroke();
     }
 
-    g.fillStyle(0xffffff, 0.15); g.fillCircle(cx, cy, 10);
-    g.fillStyle(0xffffff, 0.35); g.fillCircle(cx, cy, 7);
-    g.fillStyle(0xffffff, 0.85); g.fillCircle(cx, cy, 4);
+    // Center dot
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
 
-    g.fillStyle(0xffffff, 0.9); g.fillCircle(cx, 7, 2.5);
-    g.lineStyle(1.5, 0xffffff, 0.5); g.lineBetween(cx, 10, cx, 16);
+    // Fuse
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath(); ctx.arc(cx, 7, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx, 10); ctx.lineTo(cx, 16); ctx.stroke();
 
-    g.lineStyle(2.5, 0xff4444, 0.8);
-    g.strokeRoundedRect(2, 2, S - 4, S - 4, R);
+    // Red border
+    rrect(ctx, 2, 2, S - 4, S - 4, R);
+    ctx.strokeStyle = 'rgba(255,68,68,0.8)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
 
-    g.generateTexture(`special_bomb_${colorName}`, S, S);
+    ct.refresh();
   });
 
   // ── 무지개 ──
-  g.clear();
-  g.fillStyle(0xddddef, 0.4);
-  g.fillRoundedRect(4, 6, S - 6, S - 5, R);
-  g.fillStyle(0xffffff, 1);
-  g.fillRoundedRect(2, 2, S - 4, S - 4, R);
+  const rct = scene.textures.createCanvas('special_rainbow', S, S);
+  const rctx = rct.context;
 
-  const rainbowColors = [0xFF1744, 0xFFC400, 0x00E676, 0x2979FF, 0xD500F9, 0xFF6D00];
-  const bandW = (S + 10) / rainbowColors.length;
-  rainbowColors.forEach((color, i) => {
-    g.fillStyle(color, 0.35);
+  // White base
+  rctx.save();
+  rrect(rctx, 2, 2, S - 4, S - 4, R);
+  rctx.clip();
+
+  rctx.fillStyle = 'white';
+  rctx.fillRect(0, 0, S, S);
+
+  // Rainbow bands (diagonal)
+  const rainbowHex = [0xFF1744, 0xFFC400, 0x00E676, 0x2979FF, 0xD500F9, 0x00E5FF];
+  const bandW = (S + 10) / rainbowHex.length;
+  rainbowHex.forEach((color, i) => {
+    rctx.fillStyle = hexToCSS(color, 0.35);
     const x0 = -5 + i * bandW;
-    g.fillTriangle(x0, 6, x0 + bandW, 6, x0 + bandW - 12, S - 6);
-    g.fillTriangle(x0, 6, x0 + bandW - 12, S - 6, x0 - 12, S - 6);
+    rctx.beginPath();
+    rctx.moveTo(x0, 6);
+    rctx.lineTo(x0 + bandW, 6);
+    rctx.lineTo(x0 + bandW - 12, S - 6);
+    rctx.lineTo(x0 - 12, S - 6);
+    rctx.closePath();
+    rctx.fill();
   });
 
-  g.fillStyle(0xffffff, 0.3);
-  g.fillEllipse(cx, cy - S * 0.08, S * 0.6, S * 0.35);
-  g.fillStyle(0xffffff, 0.5);
-  g.fillEllipse(cx - S * 0.05, cy - S * 0.17, S * 0.25, S * 0.1);
+  // White shine ellipse
+  rctx.fillStyle = 'rgba(255,255,255,0.3)';
+  rctx.beginPath();
+  rctx.ellipse(cx, cy - S * 0.08, S * 0.3, S * 0.175, 0, 0, Math.PI * 2);
+  rctx.fill();
+  rctx.fillStyle = 'rgba(255,255,255,0.5)';
+  rctx.beginPath();
+  rctx.ellipse(cx - S * 0.05, cy - S * 0.17, S * 0.125, S * 0.05, 0, 0, Math.PI * 2);
+  rctx.fill();
 
+  // Diamond shape center
   const d = 10;
-  g.fillStyle(0xffffff, 0.5);
-  g.fillTriangle(cx, cy - d, cx + d, cy, cx, cy + d);
-  g.fillTriangle(cx, cy - d, cx - d, cy, cx, cy + d);
+  rctx.fillStyle = 'rgba(255,255,255,0.5)';
+  rctx.beginPath();
+  rctx.moveTo(cx, cy - d); rctx.lineTo(cx + d, cy); rctx.lineTo(cx, cy + d); rctx.lineTo(cx - d, cy);
+  rctx.closePath();
+  rctx.fill();
 
-  g.lineStyle(3, 0xFFD54F, 0.9);
-  g.strokeRoundedRect(2, 2, S - 4, S - 4, R);
+  rctx.restore();
 
-  g.generateTexture('special_rainbow', S, S);
-  g.destroy();
+  // Gold border
+  rrect(rctx, 2, 2, S - 4, S - 4, R);
+  rctx.strokeStyle = 'rgba(255,213,79,0.9)';
+  rctx.lineWidth = 3;
+  rctx.stroke();
+
+  rct.refresh();
 }
 
 // ─── 파티클 텍스처 ──────────────────────────────
 
 export function generateParticleTextures(scene) {
-  const g = scene.add.graphics();
+  // particle_circle
+  let ct = scene.textures.createCanvas('particle_circle', 8, 8);
+  let ctx = ct.context;
+  ctx.fillStyle = 'white';
+  ctx.beginPath(); ctx.arc(4, 4, 4, 0, Math.PI * 2); ctx.fill();
+  ct.refresh();
 
-  g.clear();
-  g.fillStyle(0xffffff, 1); g.fillCircle(4, 4, 4);
-  g.generateTexture('particle_circle', 8, 8);
+  // particle_square
+  ct = scene.textures.createCanvas('particle_square', 6, 6);
+  ctx = ct.context;
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, 6, 6);
+  ct.refresh();
 
-  g.clear();
-  g.fillStyle(0xffffff, 1); g.fillRect(0, 0, 6, 6);
-  g.generateTexture('particle_square', 6, 6);
+  // particle_spark
+  ct = scene.textures.createCanvas('particle_spark', 12, 4);
+  ctx = ct.context;
+  ctx.fillStyle = 'white';
+  rrect(ctx, 0, 0, 12, 3, 1);
+  ctx.fill();
+  ct.refresh();
 
-  g.clear();
-  g.fillStyle(0xffffff, 1); g.fillRoundedRect(0, 0, 12, 3, 1);
-  g.generateTexture('particle_spark', 12, 4);
-
-  g.clear();
-  g.fillStyle(0xffffff, 0.3); g.fillCircle(8, 8, 8);
-  g.fillStyle(0xffffff, 0.5); g.fillCircle(8, 8, 5);
-  g.fillStyle(0xffffff, 0.8); g.fillCircle(8, 8, 2);
-  g.generateTexture('particle_glow', 16, 16);
-
-  g.destroy();
+  // particle_glow
+  ct = scene.textures.createCanvas('particle_glow', 16, 16);
+  ctx = ct.context;
+  const glowGrad = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
+  glowGrad.addColorStop(0, 'rgba(255,255,255,0.8)');
+  glowGrad.addColorStop(0.3, 'rgba(255,255,255,0.5)');
+  glowGrad.addColorStop(0.6, 'rgba(255,255,255,0.3)');
+  glowGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = glowGrad;
+  ctx.fillRect(0, 0, 16, 16);
+  ct.refresh();
 }
 
 // ─── 장애물 텍스처 ──────────────────────────────
 
 export function generateObstacleTextures(scene) {
-  const g = scene.add.graphics();
   const obs = GAME_CONFIG.OBSTACLES;
   const mid = S / 2;
 
   // 얼음 frozen
-  g.clear();
-  g.fillStyle(obs.ice.colors.base, 0.55);
-  g.fillRoundedRect(2, 2, S - 4, S - 4, 12);
-  g.fillStyle(obs.ice.colors.frost, 0.35);
-  g.fillRoundedRect(4, 4, S - 8, S / 2 - 4, { tl: 10, tr: 10, bl: 2, br: 2 });
-  g.lineStyle(1.5, 0xffffff, 0.4);
-  g.lineBetween(10, 10, mid, mid); g.lineBetween(S - 10, 10, mid, mid);
-  g.lineBetween(mid, mid, 10, S - 10); g.lineBetween(mid, mid, S - 10, S - 10);
-  g.fillStyle(0xffffff, 0.65);
-  g.fillCircle(mid, mid, 3); g.fillCircle(14, 14, 2); g.fillCircle(S - 14, 14, 2);
-  g.fillStyle(obs.ice.colors.shine, 0.6);
-  g.fillRoundedRect(10, 7, S / 4, S / 7, 4);
-  g.lineStyle(2, obs.ice.colors.border, 0.7);
-  g.strokeRoundedRect(2, 2, S - 4, S - 4, 12);
-  g.generateTexture('obstacle_ice_frozen', S, S);
+  let ct = scene.textures.createCanvas('obstacle_ice_frozen', S, S);
+  let ctx = ct.context;
+  ctx.save();
+  rrect(ctx, 2, 2, S - 4, S - 4, 12); ctx.clip();
+  ctx.fillStyle = hexToCSS(obs.ice.colors.base, 0.55);
+  ctx.fillRect(0, 0, S, S);
+  ctx.fillStyle = hexToCSS(obs.ice.colors.frost, 0.35);
+  rrect(ctx, 4, 4, S - 8, S / 2 - 4, 10); ctx.fill();
+  ctx.restore();
+  // Crystal lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(10, 10); ctx.lineTo(mid, mid); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(S - 10, 10); ctx.lineTo(mid, mid); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mid, mid); ctx.lineTo(10, S - 10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mid, mid); ctx.lineTo(S - 10, S - 10); ctx.stroke();
+  // Sparkles
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.beginPath(); ctx.arc(mid, mid, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(14, 14, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(S - 14, 14, 2, 0, Math.PI * 2); ctx.fill();
+  // Shine bar
+  ctx.fillStyle = hexToCSS(obs.ice.colors.shine, 0.6);
+  rrect(ctx, 10, 7, S / 4, S / 7, 4); ctx.fill();
+  // Border
+  rrect(ctx, 2, 2, S - 4, S - 4, 12);
+  ctx.strokeStyle = hexToCSS(obs.ice.colors.border, 0.7); ctx.lineWidth = 2; ctx.stroke();
+  ct.refresh();
 
   // 얼음 cracked
-  g.clear();
-  g.fillStyle(obs.ice.colors.crack, 0.35);
-  g.fillRoundedRect(2, 2, S - 4, S - 4, 12);
-  g.lineStyle(2, 0xffffff, 0.7);
-  g.lineBetween(mid, S * 0.2, mid - 8, mid);
-  g.lineBetween(mid - 8, mid, mid + 4, S * 0.75);
-  g.lineStyle(1.5, 0xffffff, 0.5);
-  g.lineBetween(mid - 8, mid, S * 0.25, mid + 6);
-  g.lineBetween(mid - 8, mid, S * 0.7, mid - 4);
-  g.lineStyle(1.5, obs.ice.colors.border, 0.4);
-  g.strokeRoundedRect(2, 2, S - 4, S - 4, 12);
-  g.generateTexture('obstacle_ice_cracked', S, S);
+  ct = scene.textures.createCanvas('obstacle_ice_cracked', S, S);
+  ctx = ct.context;
+  ctx.save();
+  rrect(ctx, 2, 2, S - 4, S - 4, 12); ctx.clip();
+  ctx.fillStyle = hexToCSS(obs.ice.colors.crack, 0.35);
+  ctx.fillRect(0, 0, S, S);
+  ctx.restore();
+  // Crack lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(mid, S * 0.2); ctx.lineTo(mid - 8, mid); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mid - 8, mid); ctx.lineTo(mid + 4, S * 0.75); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(mid - 8, mid); ctx.lineTo(S * 0.25, mid + 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mid - 8, mid); ctx.lineTo(S * 0.7, mid - 4); ctx.stroke();
+  rrect(ctx, 2, 2, S - 4, S - 4, 12);
+  ctx.strokeStyle = hexToCSS(obs.ice.colors.border, 0.4); ctx.lineWidth = 1.5; ctx.stroke();
+  ct.refresh();
 
   // 체인
-  g.clear();
-  g.lineStyle(4, obs.chain.colors.base, 0.85);
-  g.lineBetween(8, 8, S - 8, S - 8); g.lineBetween(S - 8, 8, 8, S - 8);
-  g.lineStyle(3.5, obs.chain.colors.base, 0.75);
-  g.lineBetween(mid, 6, mid, S - 6); g.lineBetween(6, mid, S - 6, mid);
+  ct = scene.textures.createCanvas('obstacle_chain', S, S);
+  ctx = ct.context;
+  ctx.strokeStyle = hexToCSS(obs.chain.colors.base, 0.85); ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(8, 8); ctx.lineTo(S - 8, S - 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(S - 8, 8); ctx.lineTo(8, S - 8); ctx.stroke();
+  ctx.strokeStyle = hexToCSS(obs.chain.colors.base, 0.75); ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.moveTo(mid, 6); ctx.lineTo(mid, S - 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6, mid); ctx.lineTo(S - 6, mid); ctx.stroke();
+  // Link dots
   [[mid, mid], [14, 14], [S - 14, 14], [14, S - 14], [S - 14, S - 14], [mid, 8], [mid, S - 8], [8, mid], [S - 8, mid]].forEach(([nx, ny]) => {
-    g.fillStyle(obs.chain.colors.link, 0.9); g.fillCircle(nx, ny, 4);
-    g.fillStyle(obs.chain.colors.shine, 0.5); g.fillCircle(nx - 1, ny - 1, 2);
+    ctx.fillStyle = hexToCSS(obs.chain.colors.link, 0.9);
+    ctx.beginPath(); ctx.arc(nx, ny, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = hexToCSS(obs.chain.colors.shine, 0.5);
+    ctx.beginPath(); ctx.arc(nx - 1, ny - 1, 2, 0, Math.PI * 2); ctx.fill();
   });
-  g.lineStyle(1.5, obs.chain.colors.dark, 0.5);
-  g.strokeRoundedRect(3, 3, S - 6, S - 6, 10);
-  g.generateTexture('obstacle_chain', S, S);
+  rrect(ctx, 3, 3, S - 6, S - 6, 10);
+  ctx.strokeStyle = hexToCSS(obs.chain.colors.dark, 0.5); ctx.lineWidth = 1.5; ctx.stroke();
+  ct.refresh();
 
   // 나무 full
-  g.clear();
-  g.fillStyle(obs.wood.colors.base, 1);
-  g.fillRoundedRect(2, 2, S - 4, S - 4, 6);
-  g.lineStyle(1, obs.wood.colors.grain, 0.45);
+  ct = scene.textures.createCanvas('obstacle_wood_full', S, S);
+  ctx = ct.context;
+  ctx.save();
+  rrect(ctx, 2, 2, S - 4, S - 4, 6); ctx.clip();
+  ctx.fillStyle = hexToCSS(obs.wood.colors.base, 1);
+  ctx.fillRect(0, 0, S, S);
+  // Wood grain
+  ctx.strokeStyle = hexToCSS(obs.wood.colors.grain, 0.45); ctx.lineWidth = 1;
   for (let y = 10; y < S - 8; y += 8) {
     const w = Math.sin(y * 0.3) * 3;
-    g.lineBetween(6, y + w, S - 6, y - w);
+    ctx.beginPath(); ctx.moveTo(6, y + w); ctx.lineTo(S - 6, y - w); ctx.stroke();
   }
-  g.lineStyle(2.5, obs.wood.colors.dark, 0.7);
-  g.lineBetween(mid, 4, mid, S - 4); g.lineBetween(4, mid, S - 4, mid);
+  // Cross planks
+  ctx.strokeStyle = hexToCSS(obs.wood.colors.dark, 0.7); ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(mid, 4); ctx.lineTo(mid, S - 4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(4, mid); ctx.lineTo(S - 4, mid); ctx.stroke();
+  // Nails
   [[14, 14], [S - 14, 14], [14, S - 14], [S - 14, S - 14]].forEach(([nx, ny]) => {
-    g.fillStyle(obs.wood.colors.nail, 0.8); g.fillCircle(nx, ny, 3);
-    g.fillStyle(0xffffff, 0.4); g.fillCircle(nx - 0.5, ny - 0.5, 1.5);
+    ctx.fillStyle = hexToCSS(obs.wood.colors.nail, 0.8);
+    ctx.beginPath(); ctx.arc(nx, ny, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.arc(nx - 0.5, ny - 0.5, 1.5, 0, Math.PI * 2); ctx.fill();
   });
-  g.fillStyle(obs.wood.colors.light, 0.2);
-  g.fillRoundedRect(5, 4, S - 12, S / 2 - 8, { tl: 5, tr: 5, bl: 2, br: 2 });
-  g.lineStyle(2.5, obs.wood.colors.border, 0.85);
-  g.strokeRoundedRect(2, 2, S - 4, S - 4, 6);
-  g.generateTexture('obstacle_wood_full', S, S);
+  // Top highlight
+  ctx.fillStyle = hexToCSS(obs.wood.colors.light, 0.2);
+  rrect(ctx, 5, 4, S - 12, S / 2 - 8, 5); ctx.fill();
+  ctx.restore();
+  rrect(ctx, 2, 2, S - 4, S - 4, 6);
+  ctx.strokeStyle = hexToCSS(obs.wood.colors.border, 0.85); ctx.lineWidth = 2.5; ctx.stroke();
+  ct.refresh();
 
   // 나무 damaged
-  g.clear();
-  g.fillStyle(obs.wood.colors.light, 1);
-  g.fillRoundedRect(2, 2, S - 4, S - 4, 6);
-  g.lineStyle(1, obs.wood.colors.grain, 0.35);
-  for (let y = 10; y < S - 8; y += 10) g.lineBetween(6, y, S - 6, y);
-  g.lineStyle(2.5, obs.wood.colors.dark, 0.8);
-  g.lineBetween(mid - 3, S * 0.15, mid + 5, S * 0.55);
-  g.lineBetween(mid + 5, S * 0.55, mid - 8, S * 0.85);
-  g.lineStyle(1.5, obs.wood.colors.dark, 0.5);
-  g.lineBetween(mid + 5, S * 0.55, S * 0.75, S * 0.45);
+  ct = scene.textures.createCanvas('obstacle_wood_damaged', S, S);
+  ctx = ct.context;
+  ctx.save();
+  rrect(ctx, 2, 2, S - 4, S - 4, 6); ctx.clip();
+  ctx.fillStyle = hexToCSS(obs.wood.colors.light, 1);
+  ctx.fillRect(0, 0, S, S);
+  ctx.strokeStyle = hexToCSS(obs.wood.colors.grain, 0.35); ctx.lineWidth = 1;
+  for (let y = 10; y < S - 8; y += 10) { ctx.beginPath(); ctx.moveTo(6, y); ctx.lineTo(S - 6, y); ctx.stroke(); }
+  // Crack
+  ctx.strokeStyle = hexToCSS(obs.wood.colors.dark, 0.8); ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(mid - 3, S * 0.15); ctx.lineTo(mid + 5, S * 0.55); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mid + 5, S * 0.55); ctx.lineTo(mid - 8, S * 0.85); ctx.stroke();
+  ctx.strokeStyle = hexToCSS(obs.wood.colors.dark, 0.5); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(mid + 5, S * 0.55); ctx.lineTo(S * 0.75, S * 0.45); ctx.stroke();
+  // Nails
   [[14, mid], [S - 14, mid]].forEach(([nx, ny]) => {
-    g.fillStyle(obs.wood.colors.nail, 0.8); g.fillCircle(nx, ny, 2.5);
+    ctx.fillStyle = hexToCSS(obs.wood.colors.nail, 0.8);
+    ctx.beginPath(); ctx.arc(nx, ny, 2.5, 0, Math.PI * 2); ctx.fill();
   });
-  g.lineStyle(2, obs.wood.colors.border, 0.6);
-  g.strokeRoundedRect(2, 2, S - 4, S - 4, 6);
-  g.generateTexture('obstacle_wood_damaged', S, S);
-
-  g.destroy();
+  ctx.restore();
+  rrect(ctx, 2, 2, S - 4, S - 4, 6);
+  ctx.strokeStyle = hexToCSS(obs.wood.colors.border, 0.6); ctx.lineWidth = 2; ctx.stroke();
+  ct.refresh();
 }
 
 // ─── 배경 텍스처 (JSX 딥퍼플 스타일) ─────────────
@@ -297,54 +420,41 @@ export function generateObstacleTextures(scene) {
 export function generateBackgroundTexture(scene) {
   const W = GAME_CONFIG.WIDTH;
   const H = GAME_CONFIG.HEIGHT;
-  const g = scene.add.graphics();
 
-  // JSX 배경: #0A0E27 → #1A1145 → #2D1B69 → #1A1145
-  const stops = [
-    { t: 0, r: 10, g: 14, b: 39 },
-    { t: 0.3, r: 26, g: 17, b: 69 },
-    { t: 0.6, r: 45, g: 27, b: 105 },
-    { t: 1.0, r: 26, g: 17, b: 69 },
-  ];
-  const steps = 40;
-  const bandH = Math.ceil(H / steps);
+  const ct = scene.textures.createCanvas('bg_gradient', W, H);
+  const ctx = ct.context;
 
-  for (let i = 0; i < steps; i++) {
-    const t = i / (steps - 1);
-    let r, gv, b;
-    for (let j = 0; j < stops.length - 1; j++) {
-      if (t >= stops[j].t && t <= stops[j + 1].t) {
-        const lt = (t - stops[j].t) / (stops[j + 1].t - stops[j].t);
-        r = Math.round(stops[j].r + (stops[j + 1].r - stops[j].r) * lt);
-        gv = Math.round(stops[j].g + (stops[j + 1].g - stops[j].g) * lt);
-        b = Math.round(stops[j].b + (stops[j + 1].b - stops[j].b) * lt);
-        break;
-      }
-    }
-    g.fillStyle((r << 16) | (gv << 8) | b, 1);
-    g.fillRect(0, i * bandH, W, bandH + 1);
-  }
+  // JSX background: linear-gradient(180deg, #0A0E27 0%, #0F1538 40%, #1A1145 100%)
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#0A0E27');
+  bgGrad.addColorStop(0.3, '#1A1145');
+  bgGrad.addColorStop(0.6, '#2D1B69');
+  bgGrad.addColorStop(1, '#1A1145');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
 
-  // 중앙 보라 래디얼 글로우
-  for (let i = 0; i < 10; i++) {
-    g.fillStyle(0x8B5CF6, 0.008);
-    g.fillCircle(W / 2, H * 0.35, 300 - i * 25);
-  }
+  // Radial purple glow (center)
+  const glowGrad = ctx.createRadialGradient(W / 2, H * 0.35, 0, W / 2, H * 0.35, 300);
+  glowGrad.addColorStop(0, 'rgba(139,92,246,0.08)');
+  glowGrad.addColorStop(1, 'rgba(139,92,246,0)');
+  ctx.fillStyle = glowGrad;
+  ctx.fillRect(0, 0, W, H);
 
-  // 미세 도트 패턴
-  g.fillStyle(0xffffff, 0.008);
+  // Subtle dot pattern
+  ctx.fillStyle = 'rgba(255,255,255,0.008)';
   for (let py = 0; py < H; py += 40) {
     for (let px = 0; px < W; px += 40) {
-      g.fillCircle(px + (Math.floor(py / 40) % 2 === 0 ? 0 : 20), py, 1.5);
+      ctx.beginPath();
+      ctx.arc(px + (Math.floor(py / 40) % 2 === 0 ? 0 : 20), py, 1.5, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
-  // 비네트
-  g.fillStyle(0x000000, 0.15); g.fillRect(0, 0, W, 35);
-  g.fillStyle(0x000000, 0.08); g.fillRect(0, 35, W, 35);
-  g.fillStyle(0x000000, 0.06); g.fillRect(0, H - 70, W, 35);
-  g.fillStyle(0x000000, 0.15); g.fillRect(0, H - 35, W, 35);
+  // Vignette
+  ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0, 0, W, 35);
+  ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.fillRect(0, 35, W, 35);
+  ctx.fillStyle = 'rgba(0,0,0,0.06)'; ctx.fillRect(0, H - 70, W, 35);
+  ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0, H - 35, W, 35);
 
-  g.generateTexture('bg_gradient', W, H);
-  g.destroy();
+  ct.refresh();
 }

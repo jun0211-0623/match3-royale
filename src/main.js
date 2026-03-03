@@ -51,6 +51,17 @@ const config = {
   ],
 };
 
+// ─── Phaser DOM display 오버라이드 수정 ──────────
+// Phaser가 DOM 엘리먼트의 display를 inline-block으로 강제 변경하는 문제 수정
+// flex 레이아웃이 깨지지 않도록 원래 display 값을 보존
+const _origSetElement = Phaser.GameObjects.DOMElement.prototype.setElement;
+Phaser.GameObjects.DOMElement.prototype.setElement = function(element, style, innerText) {
+  const savedDisplay = element.style.display;
+  const result = _origSetElement.call(this, element, style, innerText);
+  if (savedDisplay) element.style.display = savedDisplay;
+  return result;
+};
+
 // ─── 글로벌 게임 폰트 적용 ─────────────────────
 const GAME_FONT = "'Segoe UI', system-ui, sans-serif";
 const _origTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
