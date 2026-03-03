@@ -99,8 +99,20 @@ export class MenuScene extends Phaser.Scene {
       },
     });
 
-    // 설정 버튼
+    // 일일 도전 버튼
     new UIButton(this, cx, cy + 100, 280, 70, {
+      text: '일일 도전 🔥',
+      fontSize: '28px',
+      bgColor: 0xe67e22,
+      onClick: () => {
+        audioManager.unlock();
+        audioManager.playClick();
+        fadeToScene(this, 'DailyChallenge');
+      },
+    });
+
+    // 설정 버튼
+    new UIButton(this, cx, cy + 200, 280, 70, {
       text: '설정',
       fontSize: '34px',
       bgColor: 0x7f8c8d,

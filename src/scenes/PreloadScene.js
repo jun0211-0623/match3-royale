@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { generateGemTextures, generateSpecialTextures, generateParticleTextures, generateBackgroundTexture } from '../utils/GemTextureGenerator.js';
+import { generateGemTextures, generateSpecialTextures, generateParticleTextures, generateBackgroundTexture, generateObstacleTextures } from '../utils/GemTextureGenerator.js';
 
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -36,6 +36,7 @@ export class PreloadScene extends Phaser.Scene {
     generateSpecialTextures(this);
     generateParticleTextures(this);
     generateBackgroundTexture(this);
+    generateObstacleTextures(this);
 
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {

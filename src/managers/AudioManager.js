@@ -145,6 +145,35 @@ export class AudioManager {
     this._playTone(1600, 0.08, 'sine', 0.12, 0.06);
   }
 
+  // ─── 장애물 사운드 ────────────────────────────
+
+  /** 얼음 깨짐 */
+  playIceCrack() {
+    if (!this.soundOn) return;
+    const ctx = this._ensureCtx();
+    if (!ctx) return;
+    this._playTone(2000, 0.08, 'sine', 0.15);
+    this._playTone(3000, 0.05, 'sine', 0.1, 0.03);
+  }
+
+  /** 체인 끊김 */
+  playChainBreak() {
+    if (!this.soundOn) return;
+    const ctx = this._ensureCtx();
+    if (!ctx) return;
+    this._playNoise(0.1, 0.15);
+    this._playTone(400, 0.08, 'sawtooth', 0.12);
+  }
+
+  /** 나무 부서짐 */
+  playWoodSmash() {
+    if (!this.soundOn) return;
+    const ctx = this._ensureCtx();
+    if (!ctx) return;
+    this._playNoise(0.15, 0.2);
+    this._playTone(150, 0.12, 'sawtooth', 0.15);
+  }
+
   // ─── BGM (단순 루프) ──────────────────────────
 
   startBGM() {

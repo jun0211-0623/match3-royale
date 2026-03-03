@@ -18,12 +18,18 @@ export class Gem {
     this._selectTween = null;
     this._glowFx = null;
 
+    // 장애물
+    this.obstacle = null; // { type: 'ice'|'chain'|'wood', layers: number }
+    this.obstacleOverlay = null;
+
     const { GEM_SIZE, CELL_SIZE, OFFSET_X, OFFSET_Y } = GAME_CONFIG.BOARD;
     const x = OFFSET_X + col * CELL_SIZE + GEM_SIZE / 2;
     const y = OFFSET_Y + row * CELL_SIZE + GEM_SIZE / 2;
 
     // 베이스 — 사전 생성된 텍스처 사용
-    const textureKey = colorIndex >= 0 ? `gem_${this.color}` : 'special_rainbow';
+    const textureKey = colorIndex >= 0 ? `gem_${this.color}`
+                     : colorIndex === -2 ? 'obstacle_wood_full'
+                     : 'special_rainbow';
     this.sprite = scene.add.image(x, y, textureKey);
 
     // 접근성 아이콘 (은은하게)
@@ -58,7 +64,71 @@ export class Gem {
     if (this.rocketIndicators) {
       targets.push(...this.rocketIndicators);
     }
+    if (this.obstacleOverlay) {
+      targets.push(this.obstacleOverlay);
+    }
     return targets.filter(t => t && t.active);
+  }
+
+  // ─── 장애물 ──────────────────────────────────────
+
+  /** 나무상자 팩토리 (젬 없이 셀 점유) */
+  static createWoodBox(scene, row, col, layers) {
+    const gem = new Gem(scene, row, col, -2);
+    gem.sprite.setTexture(layers >= 2 ? 'obstacle_wood_full' : 'obstacle_wood_damaged');
+    gem.icon.setText('');
+    gem.obstacle = { type: 'wood', layers };
+    return gem;
+  }
+
+  /** 장애물 설정 (ice, chain) */
+  setObstacle(type, layers) {
+    this.obstacle = { type, layers };
+    this._updateObstacleVisual();
+  }
+
+  /** 장애물 데미지 — false 반환 시 장애물 완전 파괴 */
+  damageObstacle() {
+    if (!this.obstacle) return false;
+    this.obstacle.layers--;
+    if (this.obstacle.layers <= 0) {
+      const type = this.obstacle.type;
+      this.obstacle = null;
+      if (this.obstacleOverlay) {
+        this.obstacleOverlay.destroy();
+        this.obstacleOverlay = null;
+      }
+      // wood면 텍스처 갱신 불필요 (셀 자체 제거됨)
+      return false; // 장애물 파괴됨
+    }
+    // 레이어 감소 → 비주얼 갱신
+    if (this.obstacle.type === 'wood') {
+      this.sprite.setTexture('obstacle_wood_damaged');
+    } else {
+      this._updateObstacleVisual();
+    }
+    return true; // 장애물 남아있음
+  }
+
+  _updateObstacleVisual() {
+    if (!this.obstacle) return;
+    const { type, layers } = this.obstacle;
+    let textureKey;
+
+    if (type === 'ice') {
+      textureKey = layers >= 2 ? 'obstacle_ice_frozen' : 'obstacle_ice_cracked';
+    } else if (type === 'chain') {
+      textureKey = 'obstacle_chain';
+    } else {
+      return; // wood는 sprite 자체를 사용
+    }
+
+    const { x, y } = this.sprite;
+    if (this.obstacleOverlay) {
+      this.obstacleOverlay.setTexture(textureKey);
+    } else {
+      this.obstacleOverlay = this.scene.add.image(x, y, textureKey).setDepth(2);
+    }
   }
 
   // ─── 특수 블록 변환 ────────────────────────────
@@ -291,6 +361,10 @@ export class Gem {
     if (this.rocketIndicators) {
       this.rocketIndicators.forEach(ind => { if (ind && ind.active) ind.destroy(); });
       this.rocketIndicators = null;
+    }
+    if (this.obstacleOverlay && this.obstacleOverlay.active) {
+      this.obstacleOverlay.destroy();
+      this.obstacleOverlay = null;
     }
   }
 }

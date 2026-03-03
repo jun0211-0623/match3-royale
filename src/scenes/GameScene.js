@@ -19,6 +19,9 @@ export class GameScene extends Phaser.Scene {
   init(data) {
     this.level = data.level || 1;
     this.activeBooster = null; // 'hammer' 등 사용 대기 중인 부스터
+    this.isDaily = !!data.dailyLevel;
+    this.dailyLevel = data.dailyLevel || null;
+    this.dailyDate = data.dailyDate || null;
   }
 
   create() {
@@ -31,7 +34,7 @@ export class GameScene extends Phaser.Scene {
     this.add.image(cx, GAME_CONFIG.HEIGHT / 2, 'bg_gradient');
 
     // ─── 레벨 데이터 로드 ──────────────────────
-    const levelData = LevelManager.getLevel(this.level);
+    const levelData = this.isDaily ? this.dailyLevel : LevelManager.getLevel(this.level);
     if (!levelData) {
       fadeToScene(this, 'LevelSelect');
       return;
@@ -49,7 +52,7 @@ export class GameScene extends Phaser.Scene {
       .on('pointerup', () => this.showExitConfirm());
 
     // 레벨 표시
-    this.add.text(cx, 20, `레벨 ${this.level}`, {
+    this.add.text(cx, 20, this.isDaily ? '일일 도전 🔥' : `레벨 ${this.level}`, {
       fontSize: '28px',
       fontStyle: 'bold',
       color: '#ffffff',
@@ -68,10 +71,18 @@ export class GameScene extends Phaser.Scene {
     const goalStartY = 65;
     const goalColors = GAME_CONFIG.COLOR_HEX;
 
+    const obstacleIcons = { ice: '🧊', chain: '⛓', wood: '📦' };
     this.goalManager.goals.forEach((goal, i) => {
-      const hex = goalColors[goal.color] || 0xffffff;
+      let hex, label;
+      if (goal.type === 'collect') {
+        hex = goalColors[goal.color] || 0xffffff;
+        label = `${goal.color}: 0/${goal.count}`;
+      } else if (goal.type === 'destroy_obstacle') {
+        hex = 0xaaaaaa;
+        label = `${obstacleIcons[goal.obstacleType] || '?'} ${goal.obstacleType}: 0/${goal.count}`;
+      }
       const colorDot = this.add.circle(cx - 100, goalStartY + i * 30, 8, hex);
-      const text = this.add.text(cx - 80, goalStartY + i * 30, `${goal.color}: 0/${goal.count}`, {
+      const text = this.add.text(cx - 80, goalStartY + i * 30, label, {
         fontSize: '20px',
         color: '#ffffff',
       }).setOrigin(0, 0.5);
@@ -82,7 +93,13 @@ export class GameScene extends Phaser.Scene {
       goals.forEach((goal, i) => {
         if (this.goalTexts[i]) {
           const done = goal.current >= goal.count;
-          this.goalTexts[i].setText(`${goal.color}: ${goal.current}/${goal.count}`);
+          let label;
+          if (goal.type === 'collect') {
+            label = `${goal.color}: ${goal.current}/${goal.count}`;
+          } else if (goal.type === 'destroy_obstacle') {
+            label = `${obstacleIcons[goal.obstacleType] || '?'} ${goal.obstacleType}: ${goal.current}/${goal.count}`;
+          }
+          this.goalTexts[i].setText(label);
           this.goalTexts[i].setColor(done ? '#2ecc71' : '#ffffff');
         }
       });
@@ -154,7 +171,7 @@ export class GameScene extends Phaser.Scene {
 
     // ─── 보드 & 엔진 생성 ───────────────────────
 
-    this.board = new Board(this, levelData.colors);
+    this.board = new Board(this, levelData.colors, levelData);
     this.engine = new Match3Engine(this, this.board);
 
     // 콜백 등록
@@ -198,6 +215,14 @@ export class GameScene extends Phaser.Scene {
 
     this.engine.onSpecialExploded = () => {
       audioManager.playSpecialExplode();
+    };
+
+    this.engine.onObstacleDestroyed = (obstacleType) => {
+      this.goalManager.onObstacleDestroyed(obstacleType);
+      // 장애물 파괴 사운드
+      if (obstacleType === 'ice') audioManager.playIceCrack();
+      else if (obstacleType === 'chain') audioManager.playChainBreak();
+      else if (obstacleType === 'wood') audioManager.playWoodSmash();
     };
 
     // ─── 힌트 시스템 ───────────────────────────
@@ -262,6 +287,7 @@ export class GameScene extends Phaser.Scene {
             fadeToScene(this, 'Result', {
               level: this.level,
               cleared: false,
+              isDaily: this.isDaily,
               stars: 0,
               score: this.engine.score,
             });
@@ -291,7 +317,7 @@ export class GameScene extends Phaser.Scene {
 
     // ─── 레벨 시작 목표 팝업 ────────────────
 
-    if (this.level > 1 || SaveManager.isTutorialDone()) {
+    if (this.isDaily || this.level > 1 || SaveManager.isTutorialDone()) {
       this.showGoalPopup();
     }
 
@@ -320,19 +346,36 @@ export class GameScene extends Phaser.Scene {
     const stars = this.goalManager.calculateStars();
     const coins = this.goalManager.getRewardCoins(stars);
 
-    // 저장
-    SaveManager.saveLevelResult(this.level, stars, this.engine.score);
-    SaveManager.addCoins(coins);
+    if (this.isDaily) {
+      // 일일 도전 클리어
+      SaveManager.completeDailyChallenge(this.dailyDate);
+      SaveManager.addCoins(coins);
 
-    this.time.delayedCall(800, () => {
-      fadeToScene(this, 'Result', {
-        level: this.level,
-        cleared: true,
-        stars,
-        score: this.engine.score,
-        coins,
+      this.time.delayedCall(800, () => {
+        fadeToScene(this, 'Result', {
+          level: -1,
+          isDaily: true,
+          cleared: true,
+          stars,
+          score: this.engine.score,
+          coins,
+        });
       });
-    });
+    } else {
+      // 일반 레벨 클리어
+      SaveManager.saveLevelResult(this.level, stars, this.engine.score);
+      SaveManager.addCoins(coins);
+
+      this.time.delayedCall(800, () => {
+        fadeToScene(this, 'Result', {
+          level: this.level,
+          cleared: true,
+          stars,
+          score: this.engine.score,
+          coins,
+        });
+      });
+    }
   }
 
   // ─── 입력 핸들러 ──────────────────────────────
@@ -471,6 +514,23 @@ export class GameScene extends Phaser.Scene {
     const gem = this.board.getGem(row, col);
     if (!gem) return;
 
+    // 장애물이 있으면 장애물 우선 처리
+    if (gem.obstacle) {
+      const type = gem.obstacle.type;
+      const stillExists = gem.damageObstacle();
+      this.engine.effects.obstacleDamage(row, col, type, !stillExists);
+      if (!stillExists) {
+        if (this.engine.onObstacleDestroyed) this.engine.onObstacleDestroyed(type);
+        if (type === 'wood') {
+          gem.destroyImmediate();
+          this.board.grid[row][col] = null;
+          this.engine.isProcessing = true;
+          this.time.delayedCall(300, () => this.engine.applyGravity());
+        }
+      }
+      return;
+    }
+
     if (this.engine.onGemDestroyed && gem.color) {
       this.engine.onGemDestroyed(gem.color);
     }
@@ -519,7 +579,7 @@ export class GameScene extends Phaser.Scene {
     const btnData = [
       { y: -40, text: '계속하기', color: 0x2ecc71, action: 'resume' },
       { y: 30, text: '재시작', color: 0x3498db, action: 'restart' },
-      { y: 100, text: '레벨 선택', color: 0x7f8c8d, action: 'exit' },
+      { y: 100, text: this.isDaily ? '일일 도전' : '레벨 선택', color: 0x7f8c8d, action: 'exit' },
     ];
 
     btnData.forEach(({ y, text, color, action }) => {
@@ -531,9 +591,13 @@ export class GameScene extends Phaser.Scene {
             this._paused = false;
             this.engine.isProcessing = false;
           } else if (action === 'restart') {
-            fadeToScene(this, 'Game', { level: this.level });
+            if (this.isDaily) {
+              fadeToScene(this, 'Game', { level: -1, dailyLevel: this.dailyLevel, dailyDate: this.dailyDate });
+            } else {
+              fadeToScene(this, 'Game', { level: this.level });
+            }
           } else if (action === 'exit') {
-            fadeToScene(this, 'LevelSelect');
+            fadeToScene(this, this.isDaily ? 'DailyChallenge' : 'LevelSelect');
           }
         },
       });
@@ -572,7 +636,7 @@ export class GameScene extends Phaser.Scene {
 
     const exitBtn = new UIButton(this, WIDTH / 2 - 80, HEIGHT / 2 + 40, 140, 50, {
       text: '나가기', bgColor: 0xe74c3c, fontSize: '22px', depth: 52,
-      onClick: () => fadeToScene(this, 'LevelSelect'),
+      onClick: () => fadeToScene(this, this.isDaily ? 'DailyChallenge' : 'LevelSelect'),
     });
     elements.push(exitBtn.shadow, exitBtn.bg, exitBtn.hitArea, exitBtn.label);
 
@@ -603,8 +667,9 @@ export class GameScene extends Phaser.Scene {
     panel.lineStyle(3, 0xf1c40f, 1);
     panel.strokeRoundedRect(WIDTH / 2 - 190, HEIGHT / 2 - panelH / 2, 380, panelH, 20);
 
-    const title = this.add.text(WIDTH / 2, HEIGHT / 2 - panelH / 2 + 30, `레벨 ${this.level}`, {
-      fontSize: '32px', fontStyle: 'bold', color: '#f1c40f',
+    const title = this.add.text(WIDTH / 2, HEIGHT / 2 - panelH / 2 + 30,
+      this.isDaily ? '일일 도전 🔥' : `레벨 ${this.level}`, {
+      fontSize: '32px', fontStyle: 'bold', color: this.isDaily ? '#e67e22' : '#f1c40f',
     }).setOrigin(0.5).setDepth(52);
 
     const movesLabel = this.add.text(WIDTH / 2, HEIGHT / 2 - panelH / 2 + 65, `이동 ${this.goalManager.moves}회`, {
@@ -615,9 +680,17 @@ export class GameScene extends Phaser.Scene {
 
     this.goalManager.goals.forEach((goal, i) => {
       const y = HEIGHT / 2 - panelH / 2 + 100 + i * 35;
-      const hex = GAME_CONFIG.COLOR_HEX[goal.color] || 0xffffff;
+      let hex, labelText;
+      if (goal.type === 'collect') {
+        hex = GAME_CONFIG.COLOR_HEX[goal.color] || 0xffffff;
+        labelText = `${goal.color} × ${goal.count}`;
+      } else if (goal.type === 'destroy_obstacle') {
+        const icons = { ice: '🧊', chain: '⛓', wood: '📦' };
+        hex = 0xaaaaaa;
+        labelText = `${icons[goal.obstacleType] || '?'} ${goal.obstacleType} × ${goal.count}`;
+      }
       const dot = this.add.circle(WIDTH / 2 - 80, y, 8, hex).setDepth(52);
-      const label = this.add.text(WIDTH / 2 - 60, y, `${goal.color} × ${goal.count}`, {
+      const label = this.add.text(WIDTH / 2 - 60, y, labelText, {
         fontSize: '20px', color: '#ffffff',
       }).setOrigin(0, 0.5).setDepth(52);
       elements.push(dot, label);

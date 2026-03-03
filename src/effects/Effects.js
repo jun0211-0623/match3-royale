@@ -237,6 +237,90 @@ export class Effects {
     this.scene.cameras.main.shake(400, 0.015);
   }
 
+  // ─── 장애물 데미지/파괴 이펙트 ────────────────
+
+  obstacleDamage(row, col, type, destroyed) {
+    const { x, y } = Gem.getPixelPos(row, col);
+
+    if (type === 'ice') {
+      if (destroyed) {
+        // 얼음 산산조각
+        const shatter = this.scene.add.particles(x, y, 'particle_square', {
+          speed: { min: 60, max: 180 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 0.8, end: 0 },
+          alpha: { start: 0.9, end: 0 },
+          tint: [0xadd8e6, 0x87ceeb, 0xffffff],
+          lifespan: 400,
+          quantity: 14,
+          emitting: false,
+          gravityY: 100,
+          rotate: { min: 0, max: 360 },
+        });
+        shatter.explode();
+        this.scene.time.delayedCall(500, () => shatter.destroy());
+      } else {
+        // 균열 스파클
+        const crack = this.scene.add.particles(x, y, 'particle_circle', {
+          speed: { min: 30, max: 80 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 0.5, end: 0 },
+          tint: [0xffffff, 0xadd8e6],
+          lifespan: 250,
+          quantity: 6,
+          emitting: false,
+        });
+        crack.explode();
+        this.scene.time.delayedCall(300, () => crack.destroy());
+      }
+    } else if (type === 'chain') {
+      // 메탈릭 스파크
+      const sparks = this.scene.add.particles(x, y, 'particle_spark', {
+        speed: { min: 80, max: 200 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 0.7, end: 0 },
+        tint: [0x888888, 0xcccccc, 0xffffff],
+        lifespan: 350,
+        quantity: 10,
+        emitting: false,
+      });
+      sparks.explode();
+      this.scene.time.delayedCall(400, () => sparks.destroy());
+    } else if (type === 'wood') {
+      if (destroyed) {
+        // 나무 파편
+        const debris = this.scene.add.particles(x, y, 'particle_square', {
+          speed: { min: 80, max: 220 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 1, end: 0.2 },
+          alpha: { start: 1, end: 0 },
+          tint: [0x8b6914, 0xb8860b, 0x654321],
+          lifespan: 500,
+          quantity: 16,
+          emitting: false,
+          gravityY: 200,
+          rotate: { min: 0, max: 360 },
+        });
+        debris.explode();
+        this.scene.time.delayedCall(600, () => debris.destroy());
+        this.scene.cameras.main.shake(150, 0.008);
+      } else {
+        // 파편 소량
+        const splinters = this.scene.add.particles(x, y, 'particle_square', {
+          speed: { min: 30, max: 100 },
+          angle: { min: 230, max: 310 },
+          scale: { start: 0.5, end: 0 },
+          tint: [0x8b6914, 0xa0752e],
+          lifespan: 300,
+          quantity: 6,
+          emitting: false,
+        });
+        splinters.explode();
+        this.scene.time.delayedCall(400, () => splinters.destroy());
+      }
+    }
+  }
+
   // ─── 콤보 텍스트 — 글로우 + 더 큰 텍스트 ──────
 
   comboText(text, x, y) {

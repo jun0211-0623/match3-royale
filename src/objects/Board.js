@@ -2,24 +2,45 @@ import { GAME_CONFIG } from '../config.js';
 import { Gem } from './Gem.js';
 
 export class Board {
-  constructor(scene, numColors) {
+  constructor(scene, numColors, levelData = null) {
     this.scene = scene;
     this.rows = GAME_CONFIG.BOARD.ROWS;
     this.cols = GAME_CONFIG.BOARD.COLS;
     this.numColors = numColors || 4;
+    this.levelData = levelData;
     this.grid = [];
 
     this.createBoard();
   }
 
-  /** 보드 생성 (초기 매치 방지) */
+  /** 보드 생성 (초기 매치 방지 + 장애물 배치) */
   createBoard() {
     this.grid = [];
+    const obstacles = this.levelData?.obstacles || [];
+
+    // 장애물 위치 맵
+    const obsMap = {};
+    obstacles.forEach(o => { obsMap[`${o.row},${o.col}`] = o; });
+
     for (let row = 0; row < this.rows; row++) {
       this.grid[row] = [];
       for (let col = 0; col < this.cols; col++) {
-        const colorIndex = this.getSafeColor(row, col);
-        this.grid[row][col] = new Gem(this.scene, row, col, colorIndex);
+        const obsData = obsMap[`${row},${col}`];
+
+        if (obsData && obsData.type === 'wood') {
+          // 나무상자: 젬 없이 셀 점유
+          this.grid[row][col] = Gem.createWoodBox(this.scene, row, col, obsData.layers);
+        } else {
+          const colorIndex = this.getSafeColor(row, col);
+          const gem = new Gem(this.scene, row, col, colorIndex);
+
+          if (obsData) {
+            // 얼음 또는 체인: 기존 젬 위에 오버레이
+            gem.setObstacle(obsData.type, obsData.layers);
+          }
+
+          this.grid[row][col] = gem;
+        }
       }
     }
   }

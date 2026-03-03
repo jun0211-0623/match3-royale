@@ -35,6 +35,20 @@ export class GoalManager {
     }
   }
 
+  /** 장애물 파괴 시 호출 */
+  onObstacleDestroyed(obstacleType) {
+    let changed = false;
+    this.goals.forEach(goal => {
+      if (goal.type === 'destroy_obstacle' && goal.obstacleType === obstacleType && goal.current < goal.count) {
+        goal.current++;
+        changed = true;
+      }
+    });
+    if (changed && this.onGoalUpdate) {
+      this.onGoalUpdate(this.goals);
+    }
+  }
+
   /** 이동 사용 */
   useMove() {
     this.movesLeft--;

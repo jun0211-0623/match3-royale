@@ -7,6 +7,7 @@ import { LevelSelectScene } from './scenes/LevelSelectScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { ResultScene } from './scenes/ResultScene.js';
 import { SettingsScene } from './scenes/SettingsScene.js';
+import { DailyChallengeScene } from './scenes/DailyChallengeScene.js';
 
 const config = {
   type: Phaser.WEBGL,
@@ -41,6 +42,7 @@ const config = {
     GameScene,
     ResultScene,
     SettingsScene,
+    DailyChallengeScene,
   ],
 };
 

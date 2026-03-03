@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#1a1a2e"/>
+  <rect x="40" y="40" width="432" height="432" rx="60" fill="#0d1b2a" stroke="#3498db" stroke-width="6"/>
+  <!-- 3x3 grid of gems -->
+  <!-- Row 1 -->
+  <circle cx="165" cy="165" r="45" fill="#e74c3c"/>
+  <circle cx="256" cy="165" r="45" fill="#3498db"/>
+  <circle cx="347" cy="165" r="45" fill="#e74c3c"/>
+  <!-- Row 2 -->
+  <circle cx="165" cy="256" r="45" fill="#2ecc71"/>
+  <circle cx="256" cy="256" r="45" fill="#f1c40f"/>
+  <circle cx="347" cy="256" r="45" fill="#2ecc71"/>
+  <!-- Row 3 (match 3 highlight) -->
+  <circle cx="165" cy="347" r="45" fill="#9b59b6"/>
+  <circle cx="256" cy="347" r="45" fill="#9b59b6"/>
+  <circle cx="347" cy="347" r="45" fill="#9b59b6"/>
+  <!-- Highlight glow on bottom row -->
+  <circle cx="165" cy="347" r="50" fill="none" stroke="#f1c40f" stroke-width="4" opacity="0.8"/>
+  <circle cx="256" cy="347" r="50" fill="none" stroke="#f1c40f" stroke-width="4" opacity="0.8"/>
+  <circle cx="347" cy="347" r="50" fill="none" stroke="#f1c40f" stroke-width="4" opacity="0.8"/>
+  <!-- Shine effects -->
+  <circle cx="145" cy="145" r="12" fill="white" opacity="0.4"/>
+  <circle cx="236" cy="145" r="12" fill="white" opacity="0.4"/>
+  <circle cx="327" cy="145" r="12" fill="white" opacity="0.4"/>
+  <circle cx="145" cy="236" r="12" fill="white" opacity="0.4"/>
+  <circle cx="236" cy="236" r="12" fill="white" opacity="0.4"/>
+  <circle cx="327" cy="236" r="12" fill="white" opacity="0.4"/>
+  <circle cx="145" cy="327" r="12" fill="white" opacity="0.4"/>
+  <circle cx="236" cy="327" r="12" fill="white" opacity="0.4"/>
+  <circle cx="327" cy="327" r="12" fill="white" opacity="0.4"/>
+</svg>

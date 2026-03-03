@@ -21,6 +21,7 @@ export class Match3Engine {
     this.onInvalidSwap = null;  // () => {} 잘못된 스와이프
     this.onSpecialCreated = null; // () => {} 특수블록 생성
     this.onSpecialExploded = null; // () => {} 특수블록 폭발
+    this.onObstacleDestroyed = null; // (obstacleType) => {} 장애물 파괴
   }
 
   // ═══ 블록 교환 ═════════════════════════════════
@@ -31,6 +32,17 @@ export class Match3Engine {
     const gem1 = this.board.getGem(pos1.row, pos1.col);
     const gem2 = this.board.getGem(pos2.row, pos2.col);
     if (!gem1 || !gem2) return;
+
+    // 체인 장애물은 스왑 불가
+    if (gem1.obstacle?.type === 'chain' || gem2.obstacle?.type === 'chain') {
+      if (this.onInvalidSwap) this.onInvalidSwap();
+      return;
+    }
+    // 나무상자는 스왑 불가
+    if (gem1.colorIndex === -2 || gem2.colorIndex === -2) {
+      if (this.onInvalidSwap) this.onInvalidSwap();
+      return;
+    }
 
     if (Math.abs(pos1.row - pos2.row) + Math.abs(pos1.col - pos2.col) !== 1) return;
 
@@ -287,6 +299,9 @@ export class Match3Engine {
 
     if (this.onScoreUpdate) this.onScoreUpdate(this.score, this.comboCount);
     if (this.onMatchFound) this.onMatchFound(allCells, this.comboCount);
+
+    // ── 장애물 인접 데미지 ──
+    this._damageAdjacentObstacles(allCells);
 
     // 특수블록 활성화 (연쇄 폭발)
     const extraCells = new Set();
@@ -600,6 +615,13 @@ export class Match3Engine {
     this.score += points;
     if (this.onScoreUpdate) this.onScoreUpdate(this.score, this.comboCount);
 
+    // 장애물 인접 데미지 (특수 조합 폭발 범위)
+    const comboCells = Array.from(toDestroy).map(k => {
+      const [r, c] = k.split(',').map(Number);
+      return { row: r, col: c };
+    });
+    this._damageAdjacentObstacles(comboCells);
+
     // 일괄 제거
     let destroyed = 0;
     const total = toDestroy.size;
@@ -608,6 +630,12 @@ export class Match3Engine {
       const [r, c] = key.split(',').map(Number);
       const gem = this.board.getGem(r, c);
       if (!gem || gem.isDestroying) {
+        destroyed++;
+        if (destroyed >= total) this.onAllDestroyed();
+        return;
+      }
+      // 나무상자는 직접 파괴하지 않음 (인접 데미지로만 처리)
+      if (gem.colorIndex === -2) {
         destroyed++;
         if (destroyed >= total) this.onAllDestroyed();
         return;
@@ -622,6 +650,53 @@ export class Match3Engine {
         if (destroyed >= total) this.onAllDestroyed();
       });
       this.board.grid[r][c] = null;
+    });
+  }
+
+  // ═══ 장애물 처리 ═══════════════════════════════
+
+  /** 매치된 셀 인접 장애물 데미지 */
+  _damageAdjacentObstacles(matchedCells) {
+    const toDamage = new Set();
+
+    matchedCells.forEach(({ row, col }) => {
+      const neighbors = [
+        { row: row - 1, col },
+        { row: row + 1, col },
+        { row, col: col - 1 },
+        { row, col: col + 1 },
+      ];
+      neighbors.forEach(n => {
+        if (!this.board.isValid(n.row, n.col)) return;
+        const gem = this.board.getGem(n.row, n.col);
+        if (gem && gem.obstacle) {
+          toDamage.add(`${n.row},${n.col}`);
+        }
+      });
+    });
+
+    toDamage.forEach(key => {
+      const [r, c] = key.split(',').map(Number);
+      const gem = this.board.getGem(r, c);
+      if (!gem || !gem.obstacle) return;
+
+      const obstacleType = gem.obstacle.type;
+      const stillExists = gem.damageObstacle();
+
+      // 이펙트
+      this.effects.obstacleDamage(r, c, obstacleType, !stillExists);
+
+      if (!stillExists) {
+        if (this.onObstacleDestroyed) {
+          this.onObstacleDestroyed(obstacleType);
+        }
+        // 나무상자: 셀 비우기
+        if (obstacleType === 'wood') {
+          gem.destroyImmediate();
+          this.board.grid[r][c] = null;
+        }
+        // ice/chain: 젬은 남아있음 (정상 블록으로 전환)
+      }
     });
   }
 
@@ -645,40 +720,64 @@ export class Match3Engine {
     let hasFall = false;
 
     for (let col = 0; col < cols; col++) {
-      let emptyRow = -1;
+      // 나무상자를 "바닥"으로 처리 → 컬럼을 세그먼트로 분할
+      const segments = []; // { start, end } (inclusive row range)
+      let segStart = 0;
 
-      for (let row = rows - 1; row >= 0; row--) {
-        if (!this.board.grid[row][col]) {
-          if (emptyRow === -1) emptyRow = row;
-        } else if (emptyRow !== -1) {
-          const gem = this.board.grid[row][col];
-          this.board.grid[row][col] = null;
-          this.board.grid[emptyRow][col] = gem;
+      for (let row = 0; row <= rows; row++) {
+        const gem = row < rows ? this.board.grid[row][col] : null;
+        const isWood = gem && gem.colorIndex === -2;
 
-          const dist = emptyRow - row;
-          hasFall = true;
-          fallPromises.push(new Promise(resolve => {
-            gem.moveTo(emptyRow, col, dist * GAME_CONFIG.ANIM.FALL_SPEED, resolve);
-          }));
-          emptyRow--;
+        if (isWood || row === rows) {
+          if (row > segStart) {
+            segments.push({ start: segStart, end: row - 1 });
+          }
+          segStart = row + 1;
         }
       }
 
-      for (let row = emptyRow; row >= 0; row--) {
-        if (this.board.grid[row][col]) continue;
+      // 각 세그먼트 내에서 중력 적용
+      segments.forEach(({ start, end }) => {
+        let emptyRow = -1;
 
-        const colorIndex = Math.floor(Math.random() * this.board.numColors);
-        const gem = new Gem(this.scene, -1, col, colorIndex);
-        const startPos = Gem.getPixelPos(-1 - (emptyRow - row), col);
-        gem.allTargets.forEach(t => { if (t && t.active) t.setPosition(startPos.x, startPos.y); });
+        for (let row = end; row >= start; row--) {
+          if (!this.board.grid[row][col]) {
+            if (emptyRow === -1) emptyRow = row;
+          } else if (emptyRow !== -1) {
+            const gem = this.board.grid[row][col];
+            this.board.grid[row][col] = null;
+            this.board.grid[emptyRow][col] = gem;
 
-        this.board.grid[row][col] = gem;
-        const dist = row + 1 + (emptyRow - row);
-        hasFall = true;
-        fallPromises.push(new Promise(resolve => {
-          gem.moveTo(row, col, dist * GAME_CONFIG.ANIM.FALL_SPEED, resolve);
-        }));
-      }
+            const dist = emptyRow - row;
+            hasFall = true;
+            fallPromises.push(new Promise(resolve => {
+              gem.moveTo(emptyRow, col, dist * GAME_CONFIG.ANIM.FALL_SPEED, resolve);
+            }));
+            emptyRow--;
+          }
+        }
+
+        // 최상단 세그먼트(start === 0)만 새 젬 스폰
+        if (start === 0 && emptyRow >= 0) {
+          let spawnOffset = 0;
+          for (let row = emptyRow; row >= 0; row--) {
+            if (this.board.grid[row][col]) continue;
+
+            const colorIndex = Math.floor(Math.random() * this.board.numColors);
+            const gem = new Gem(this.scene, -1, col, colorIndex);
+            const startPos = Gem.getPixelPos(-1 - spawnOffset, col);
+            gem.allTargets.forEach(t => { if (t && t.active) t.setPosition(startPos.x, startPos.y); });
+
+            this.board.grid[row][col] = gem;
+            const dist = row + 1 + spawnOffset;
+            hasFall = true;
+            fallPromises.push(new Promise(resolve => {
+              gem.moveTo(row, col, dist * GAME_CONFIG.ANIM.FALL_SPEED, resolve);
+            }));
+            spawnOffset++;
+          }
+        }
+      });
     }
 
     if (hasFall) {
@@ -710,24 +809,36 @@ export class Match3Engine {
     const { rows, cols, grid } = this.board;
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
+        const gem = grid[row][col];
+        if (!gem) continue;
+        // 체인/나무상자는 스왑 불가
+        if (gem.obstacle?.type === 'chain') continue;
+        if (gem.colorIndex === -2) continue;
+        // 무지개 블록이 있으면 항상 유효 이동 있음
+        if (gem.specialType === 'rainbow') return true;
+
         if (col < cols - 1) {
-          this.simSwap(grid, row, col, row, col + 1);
-          if (this.findMatchesInGrid(grid).length > 0) {
+          const right = grid[row][col + 1];
+          if (right && right.obstacle?.type !== 'chain' && right.colorIndex !== -2) {
             this.simSwap(grid, row, col, row, col + 1);
-            return true;
+            if (this.findMatchesInGrid(grid).length > 0) {
+              this.simSwap(grid, row, col, row, col + 1);
+              return true;
+            }
+            this.simSwap(grid, row, col, row, col + 1);
           }
-          this.simSwap(grid, row, col, row, col + 1);
         }
         if (row < rows - 1) {
-          this.simSwap(grid, row, col, row + 1, col);
-          if (this.findMatchesInGrid(grid).length > 0) {
+          const below = grid[row + 1][col];
+          if (below && below.obstacle?.type !== 'chain' && below.colorIndex !== -2) {
             this.simSwap(grid, row, col, row + 1, col);
-            return true;
+            if (this.findMatchesInGrid(grid).length > 0) {
+              this.simSwap(grid, row, col, row + 1, col);
+              return true;
+            }
+            this.simSwap(grid, row, col, row + 1, col);
           }
-          this.simSwap(grid, row, col, row + 1, col);
         }
-        // 무지개 블록이 있으면 항상 유효 이동 있음
-        if (grid[row][col]?.specialType === 'rainbow') return true;
       }
     }
     return false;
@@ -775,21 +886,28 @@ export class Match3Engine {
     const MAX_SHUFFLE = 10;
     const { rows, cols, grid } = this.board;
     for (let attempt = 0; attempt < MAX_SHUFFLE; attempt++) {
+      // 나무상자/체인 제외, 이동 가능한 젬만 셔플
       const gems = [];
-      for (let r = 0; r < rows; r++)
-        for (let c = 0; c < cols; c++) gems.push(grid[r][c]);
+      const positions = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const gem = grid[r][c];
+          if (gem && gem.colorIndex !== -2 && gem.obstacle?.type !== 'chain') {
+            gems.push(gem);
+            positions.push({ r, c });
+          }
+        }
+      }
 
       for (let i = gems.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [gems[i], gems[j]] = [gems[j], gems[i]];
       }
 
-      let idx = 0;
-      for (let r = 0; r < rows; r++)
-        for (let c = 0; c < cols; c++) {
-          grid[r][c] = gems[idx++];
-          grid[r][c].moveTo(r, c, GAME_CONFIG.ANIM.SWAP_SPEED);
-        }
+      positions.forEach(({ r, c }, idx) => {
+        grid[r][c] = gems[idx];
+        gems[idx].moveTo(r, c, GAME_CONFIG.ANIM.SWAP_SPEED);
+      });
 
       if (this.hasValidMoves()) {
         const matches = this.findMatches();

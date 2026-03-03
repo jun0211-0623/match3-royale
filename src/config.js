@@ -57,4 +57,29 @@ export const GAME_CONFIG = {
     BOOSTER_EXTRA_MOVES: 150,
     EXTRA_MOVES_COUNT: 5,
   },
+
+  // 장애물 블록 팔레트
+  OBSTACLES: {
+    ice: {
+      maxLayers: 2,
+      colors: {
+        base: 0xadd8e6, light: 0xd4eef7, crack: 0x87ceeb,
+        border: 0x5fb3d4, shine: 0xf0f8ff, frost: 0xe0f0ff,
+      },
+    },
+    chain: {
+      maxLayers: 1,
+      colors: {
+        base: 0x888888, link: 0xaaaaaa, dark: 0x555555,
+        shine: 0xcccccc, border: 0x666666,
+      },
+    },
+    wood: {
+      maxLayers: 2,
+      colors: {
+        base: 0x8b6914, light: 0xb8860b, dark: 0x654321,
+        grain: 0xa0752e, border: 0x5c3a1e, nail: 0x999999,
+      },
+    },
+  },
 };

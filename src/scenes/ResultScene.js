@@ -17,6 +17,7 @@ export class ResultScene extends Phaser.Scene {
     this.stars = data.stars || 0;
     this.score = data.score || 0;
     this.coins = data.coins || 0;
+    this.isDaily = !!data.isDaily;
   }
 
   create() {
@@ -66,7 +67,9 @@ export class ResultScene extends Phaser.Scene {
     panel.strokeRoundedRect(cx - 220, cy - panelH / 2, 440, panelH, 20);
 
     // 타이틀
-    const title = this.cleared ? '레벨 클리어!' : '실패...';
+    const title = this.cleared
+      ? (this.isDaily ? '도전 성공!' : '레벨 클리어!')
+      : '실패...';
     const titleColor = this.cleared ? '#f1c40f' : '#e74c3c';
 
     const titleText = this.add.text(cx, cy - panelH / 2 + 40, title, {
@@ -132,61 +135,93 @@ export class ResultScene extends Phaser.Scene {
         fontSize: '24px', color: '#f1c40f',
       }).setOrigin(0.5);
 
-      // 다음 레벨
-      if (LevelManager.hasLevel(this.level + 1)) {
-        new UIButton(this, cx, cy + 20, 280, 60, {
-          text: '다음 레벨',
+      if (this.isDaily) {
+        // 일일 도전 스트릭 표시
+        const dailyData = SaveManager.getDailyData();
+        this.add.text(cx, cy - panelH / 2 + 225, `🔥 연속 ${dailyData.streak}일`, {
+          fontSize: '24px', fontStyle: 'bold', color: '#e67e22',
+        }).setOrigin(0.5);
+
+        // 돌아가기
+        new UIButton(this, cx, cy + 50, 280, 60, {
+          text: '확인',
           fontSize: '28px',
           bgColor: 0x2ecc71,
           glow: true,
           glowColor: 0x2ecc71,
-          onClick: () => fadeToScene(this, 'Game', { level: this.level + 1 }),
+          onClick: () => fadeToScene(this, 'DailyChallenge'),
+        });
+      } else {
+        // 다음 레벨
+        if (LevelManager.hasLevel(this.level + 1)) {
+          new UIButton(this, cx, cy + 20, 280, 60, {
+            text: '다음 레벨',
+            fontSize: '28px',
+            bgColor: 0x2ecc71,
+            glow: true,
+            glowColor: 0x2ecc71,
+            onClick: () => fadeToScene(this, 'Game', { level: this.level + 1 }),
+          });
+        }
+
+        // 재시도
+        new UIButton(this, cx, cy + 95, 280, 55, {
+          text: '재시도',
+          fontSize: '24px',
+          bgColor: 0x3498db,
+          onClick: () => fadeToScene(this, 'Game', { level: this.level }),
         });
       }
-
-      // 재시도
-      new UIButton(this, cx, cy + 95, 280, 55, {
-        text: '재시도',
-        fontSize: '24px',
-        bgColor: 0x3498db,
-        onClick: () => fadeToScene(this, 'Game', { level: this.level }),
-      });
 
     } else {
       this.add.text(cx, cy - panelH / 2 + 100, `점수: ${this.score}`, {
         fontSize: '26px', color: '#ffffff',
       }).setOrigin(0.5);
 
-      // 추가 이동 구매
-      const extraCost = GAME_CONFIG.ECONOMY.BOOSTER_EXTRA_MOVES;
-      const canBuy = SaveManager.getCoins() >= extraCost;
+      if (this.isDaily) {
+        // 일일 도전 실패
+        this.add.text(cx, cy - panelH / 2 + 140, '내일 다시 도전하세요!', {
+          fontSize: '18px', color: '#aaaaaa',
+        }).setOrigin(0.5);
 
-      new UIButton(this, cx, cy - 20, 280, 55, {
-        text: `+5 이동 (${extraCost}💰)`,
-        fontSize: '22px',
-        bgColor: canBuy ? 0xe67e22 : 0x555555,
-        onClick: () => {
-          if (canBuy && SaveManager.spendCoins(extraCost)) {
-            fadeToScene(this, 'Game', { level: this.level });
-          }
-        },
-      });
+        new UIButton(this, cx, cy + 20, 280, 55, {
+          text: '확인',
+          fontSize: '24px',
+          bgColor: 0x7f8c8d,
+          onClick: () => fadeToScene(this, 'DailyChallenge'),
+        });
+      } else {
+        // 추가 이동 구매
+        const extraCost = GAME_CONFIG.ECONOMY.BOOSTER_EXTRA_MOVES;
+        const canBuy = SaveManager.getCoins() >= extraCost;
 
-      // 재시도
-      new UIButton(this, cx, cy + 50, 280, 55, {
-        text: '재시도',
-        fontSize: '24px',
-        bgColor: 0x3498db,
-        onClick: () => fadeToScene(this, 'Game', { level: this.level }),
-      });
+        new UIButton(this, cx, cy - 20, 280, 55, {
+          text: `+5 이동 (${extraCost}💰)`,
+          fontSize: '22px',
+          bgColor: canBuy ? 0xe67e22 : 0x555555,
+          onClick: () => {
+            if (canBuy && SaveManager.spendCoins(extraCost)) {
+              fadeToScene(this, 'Game', { level: this.level });
+            }
+          },
+        });
+
+        // 재시도
+        new UIButton(this, cx, cy + 50, 280, 55, {
+          text: '재시도',
+          fontSize: '24px',
+          bgColor: 0x3498db,
+          onClick: () => fadeToScene(this, 'Game', { level: this.level }),
+        });
+      }
     }
 
-    // 레벨 선택
+    // 하단 네비게이션
     new UIButton(this, cx, cy + panelH / 2 - 45, 280, 55, {
-      text: '레벨 선택',
+      text: this.isDaily ? '메인 메뉴' : '레벨 선택',
       fontSize: '24px',
       bgColor: 0x7f8c8d,
-      onClick: () => fadeToScene(this, 'LevelSelect'),
+      onClick: () => fadeToScene(this, this.isDaily ? 'Menu' : 'LevelSelect'),
     });
   }
 }

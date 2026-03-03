@@ -279,6 +279,141 @@ export function generateParticleTextures(scene) {
   g.destroy();
 }
 
+// ─── 장애물 텍스처 생성 ─────────────────────────
+
+export function generateObstacleTextures(scene) {
+  const g = scene.add.graphics();
+  const obs = GAME_CONFIG.OBSTACLES;
+
+  // ── 얼음 (frozen: 2레이어) ──
+  g.clear();
+  g.fillStyle(obs.ice.colors.base, 0.5);
+  g.fillRoundedRect(2, 2, S - 4, S - 4, 12);
+  // 서리 패턴
+  g.fillStyle(obs.ice.colors.frost, 0.3);
+  g.fillRoundedRect(4, 4, S - 8, S / 2 - 4, { tl: 10, tr: 10, bl: 2, br: 2 });
+  // 대각 서리 라인
+  g.lineStyle(1.5, 0xffffff, 0.35);
+  g.lineBetween(10, 10, S / 2, S / 2);
+  g.lineBetween(S - 10, 10, S / 2, S / 2);
+  g.lineBetween(S / 2, S / 2, 10, S - 10);
+  g.lineBetween(S / 2, S / 2, S - 10, S - 10);
+  // 빙결 결정 도트
+  g.fillStyle(0xffffff, 0.6);
+  g.fillCircle(S / 2, S / 2, 3);
+  g.fillCircle(14, 14, 2);
+  g.fillCircle(S - 14, 14, 2);
+  // 샤인
+  g.fillStyle(obs.ice.colors.shine, 0.55);
+  g.fillRoundedRect(10, 7, S / 4, S / 7, 4);
+  // 보더
+  g.lineStyle(2, obs.ice.colors.border, 0.6);
+  g.strokeRoundedRect(2, 2, S - 4, S - 4, 12);
+  g.generateTexture('obstacle_ice_frozen', S, S);
+
+  // ── 얼음 (cracked: 1레이어) ──
+  g.clear();
+  g.fillStyle(obs.ice.colors.crack, 0.35);
+  g.fillRoundedRect(2, 2, S - 4, S - 4, 12);
+  // 균열 라인
+  g.lineStyle(2, 0xffffff, 0.7);
+  g.lineBetween(S / 2, S * 0.2, S / 2 - 8, S / 2);
+  g.lineBetween(S / 2 - 8, S / 2, S / 2 + 4, S * 0.75);
+  g.lineStyle(1.5, 0xffffff, 0.5);
+  g.lineBetween(S / 2 - 8, S / 2, S * 0.25, S / 2 + 6);
+  g.lineBetween(S / 2 - 8, S / 2, S * 0.7, S / 2 - 4);
+  // 파편 도트
+  g.fillStyle(0xffffff, 0.4);
+  g.fillCircle(S * 0.3, S * 0.3, 2);
+  g.fillCircle(S * 0.65, S * 0.6, 1.5);
+  // 보더
+  g.lineStyle(1.5, obs.ice.colors.border, 0.4);
+  g.strokeRoundedRect(2, 2, S - 4, S - 4, 12);
+  g.generateTexture('obstacle_ice_cracked', S, S);
+
+  // ── 체인 ──
+  g.clear();
+  // 체인 X패턴 링크
+  const mid = S / 2;
+  // 대각선 체인
+  g.lineStyle(4, obs.chain.colors.base, 0.85);
+  g.lineBetween(8, 8, S - 8, S - 8);
+  g.lineBetween(S - 8, 8, 8, S - 8);
+  // 십자 체인
+  g.lineStyle(3.5, obs.chain.colors.base, 0.75);
+  g.lineBetween(mid, 6, mid, S - 6);
+  g.lineBetween(6, mid, S - 6, mid);
+  // 링크 노드 (교차점)
+  const nodes = [[mid, mid], [14, 14], [S - 14, 14], [14, S - 14], [S - 14, S - 14], [mid, 8], [mid, S - 8], [8, mid], [S - 8, mid]];
+  nodes.forEach(([nx, ny]) => {
+    g.fillStyle(obs.chain.colors.link, 0.9);
+    g.fillCircle(nx, ny, 4);
+    g.fillStyle(obs.chain.colors.shine, 0.5);
+    g.fillCircle(nx - 1, ny - 1, 2);
+  });
+  // 어둡게 테두리
+  g.lineStyle(1.5, obs.chain.colors.dark, 0.5);
+  g.strokeRoundedRect(3, 3, S - 6, S - 6, 10);
+  g.generateTexture('obstacle_chain', S, S);
+
+  // ── 나무상자 (full: 2레이어) ──
+  g.clear();
+  // 메인 나무 바디
+  g.fillStyle(obs.wood.colors.base, 1);
+  g.fillRoundedRect(2, 2, S - 4, S - 4, 6);
+  // 나무결 가로 라인
+  g.lineStyle(1, obs.wood.colors.grain, 0.45);
+  for (let y = 10; y < S - 8; y += 8) {
+    const wobble = Math.sin(y * 0.3) * 3;
+    g.lineBetween(6, y + wobble, S - 6, y - wobble);
+  }
+  // 십자 판자 라인
+  g.lineStyle(2.5, obs.wood.colors.dark, 0.7);
+  g.lineBetween(mid, 4, mid, S - 4);
+  g.lineBetween(4, mid, S - 4, mid);
+  // 못 4개 (모서리)
+  [[14, 14], [S - 14, 14], [14, S - 14], [S - 14, S - 14]].forEach(([nx, ny]) => {
+    g.fillStyle(obs.wood.colors.nail, 0.8);
+    g.fillCircle(nx, ny, 3);
+    g.fillStyle(0xffffff, 0.4);
+    g.fillCircle(nx - 0.5, ny - 0.5, 1.5);
+  });
+  // 하이라이트
+  g.fillStyle(obs.wood.colors.light, 0.2);
+  g.fillRoundedRect(5, 4, S - 12, S / 2 - 8, { tl: 5, tr: 5, bl: 2, br: 2 });
+  // 보더
+  g.lineStyle(2.5, obs.wood.colors.border, 0.85);
+  g.strokeRoundedRect(2, 2, S - 4, S - 4, 6);
+  g.generateTexture('obstacle_wood_full', S, S);
+
+  // ── 나무상자 (damaged: 1레이어) ──
+  g.clear();
+  g.fillStyle(obs.wood.colors.light, 1);
+  g.fillRoundedRect(2, 2, S - 4, S - 4, 6);
+  // 나무결
+  g.lineStyle(1, obs.wood.colors.grain, 0.35);
+  for (let y = 10; y < S - 8; y += 10) {
+    g.lineBetween(6, y, S - 6, y);
+  }
+  // 균열
+  g.lineStyle(2.5, obs.wood.colors.dark, 0.8);
+  g.lineBetween(mid - 3, S * 0.15, mid + 5, S * 0.55);
+  g.lineBetween(mid + 5, S * 0.55, mid - 8, S * 0.85);
+  g.lineStyle(1.5, obs.wood.colors.dark, 0.5);
+  g.lineBetween(mid + 5, S * 0.55, S * 0.75, S * 0.45);
+  // 못 2개
+  [[14, mid], [S - 14, mid]].forEach(([nx, ny]) => {
+    g.fillStyle(obs.wood.colors.nail, 0.8);
+    g.fillCircle(nx, ny, 2.5);
+  });
+  // 보더 (깨진)
+  g.lineStyle(2, obs.wood.colors.border, 0.6);
+  g.strokeRoundedRect(2, 2, S - 4, S - 4, 6);
+  g.generateTexture('obstacle_wood_damaged', S, S);
+
+  g.destroy();
+}
+
 // ─── 배경 그라디언트 텍스처 생성 ─────────────────
 
 export function generateBackgroundTexture(scene) {

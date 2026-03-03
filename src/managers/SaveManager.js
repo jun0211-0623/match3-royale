@@ -97,4 +97,35 @@ export class SaveManager {
   static isTutorialDone() {
     return SaveManager.load().tutorialDone;
   }
+
+  // ─── 일일 도전 ──────────────────────────────
+
+  /** 일일 도전 데이터 조회 */
+  static getDailyData() {
+    const data = SaveManager.load();
+    return data.daily || { lastDate: null, streak: 0, history: [] };
+  }
+
+  /** 일일 도전 완료 처리 */
+  static completeDailyChallenge(dateStr) {
+    const data = SaveManager.load();
+    if (!data.daily) data.daily = { lastDate: null, streak: 0, history: [] };
+    if (data.daily.history.includes(dateStr)) return data.daily;
+
+    // 스트릭 계산
+    const yesterday = new Date(dateStr);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+    if (data.daily.lastDate === yStr) {
+      data.daily.streak++;
+    } else {
+      data.daily.streak = 1;
+    }
+
+    data.daily.lastDate = dateStr;
+    data.daily.history.push(dateStr);
+    SaveManager.save(data);
+    return data.daily;
+  }
 }
