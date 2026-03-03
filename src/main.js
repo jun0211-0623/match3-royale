@@ -62,8 +62,10 @@ Phaser.GameObjects.DOMElement.prototype.setElement = function(element, style, in
     element.style.display = savedDisplay;
     this.updateSize();
   }
-  // transformOnly = true prevents CSSRenderer from overriding display/opacity every frame
+  // transformOnly prevents CSSRenderer from overriding display(flex→block) every frame
+  // but also skips pointerEvents, so set it manually (DOM container defaults to 'none')
   this.transformOnly = true;
+  element.style.pointerEvents = 'auto';
   return result;
 };
 
