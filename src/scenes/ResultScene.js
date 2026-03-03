@@ -44,10 +44,10 @@ export class ResultScene extends Phaser.Scene {
         <div style="font-size:56px;margin-bottom:8px;animation:m3r-trophy-pop 0.5s ease-out both;">🏆</div>
         <div style="display:flex;justify-content:center;gap:4px;margin-bottom:12px;">${starsHTML}</div>
         <h2 style="color:#FFD54F;font-size:28px;margin:0 0 6px;font-weight:900;">${titleText}</h2>
-        <p style="color:rgba(255,255,255,0.5);margin:0 0 20px;font-size:14px;">점수: ${this.score}</p>
+        <p style="color:rgba(255,255,255,0.5);margin:0 0 20px;font-size:14px;">점수: <span id="m3r-score-val" style="font-family:monospace;font-weight:700;">0</span></p>
         <div style="display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,215,0,0.1);border-radius:14px;padding:12px 20px;margin-bottom:24px;border:1px solid rgba(255,215,0,0.2);">
           <span style="font-size:24px;">🪙</span>
-          <span style="color:#FFD54F;font-size:24px;font-weight:900;">+${this.coins}</span>
+          <span id="m3r-coin-val" style="color:#FFD54F;font-size:24px;font-weight:900;font-family:monospace;">+0</span>
         </div>
       `;
 
@@ -55,17 +55,17 @@ export class ResultScene extends Phaser.Scene {
         const dailyData = SaveManager.getDailyData();
         cardContent += `<div style="color:#FF8F00;font-size:18px;font-weight:800;margin-bottom:20px;">🔥 연속 ${dailyData.streak}일</div>`;
         buttonsHTML = `
-          <button id="m3r-btn-confirm" style="width:100%;padding:14px;font-size:18px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A,#2E7D32);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #1B5E20,0 6px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;" data-target="DailyChallenge">
+          <button id="m3r-btn-confirm" class="m3r-btn-3d" style="width:100%;padding:14px;font-size:18px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A,#2E7D32);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #1B5E20,0 6px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;" data-target="DailyChallenge">
             확인
           </button>
         `;
       } else {
         const hasNext = LevelManager.hasLevel(this.level + 1);
         buttonsHTML = `<div style="display:flex;gap:10px;width:100%;">
-          <button id="m3r-btn-home" style="flex:1;padding:14px;font-size:16px;font-weight:800;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;" data-target="LevelSelect">
+          <button id="m3r-btn-home" class="m3r-btn-flat" style="flex:1;padding:14px;font-size:16px;font-weight:800;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;" data-target="LevelSelect">
             레벨 선택
           </button>
-          ${hasNext ? `<button id="m3r-btn-next" style="flex:2;padding:14px;font-size:16px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A,#2E7D32);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #1B5E20,0 6px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;" data-level="${this.level + 1}">
+          ${hasNext ? `<button id="m3r-btn-next" class="m3r-btn-3d" style="flex:2;padding:14px;font-size:16px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A,#2E7D32);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #1B5E20,0 6px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;" data-level="${this.level + 1}">
             다음 스테이지 ▶
           </button>` : ''}
         </div>`;
@@ -80,7 +80,7 @@ export class ResultScene extends Phaser.Scene {
       if (this.isDaily) {
         cardContent += `<p style="color:rgba(255,255,255,0.4);font-size:15px;margin:0 0 20px;">내일 다시 도전하세요!</p>`;
         buttonsHTML = `
-          <button id="m3r-btn-confirm" style="width:100%;padding:14px;font-size:16px;font-weight:800;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;" data-target="DailyChallenge">
+          <button id="m3r-btn-confirm" class="m3r-btn-flat" style="width:100%;padding:14px;font-size:16px;font-weight:800;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;" data-target="DailyChallenge">
             확인
           </button>
         `;
@@ -88,13 +88,13 @@ export class ResultScene extends Phaser.Scene {
         const extraCost = GAME_CONFIG.ECONOMY.BOOSTER_EXTRA_MOVES;
         const canBuy = SaveManager.getCoins() >= extraCost;
         buttonsHTML = `
-          <button id="m3r-btn-extra" style="width:100%;padding:14px;font-size:16px;font-weight:800;color:white;background:${canBuy ? 'linear-gradient(180deg,#FFA726,#EF6C00)' : 'rgba(255,255,255,0.1)'};border:none;border-radius:14px;cursor:pointer;box-shadow:${canBuy ? '0 4px 0 #BF360C,0 6px 12px rgba(239,108,0,0.3)' : 'none'};margin-bottom:10px;font-family:'Segoe UI',system-ui,sans-serif;${canBuy ? '' : 'border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);'}">
+          <button id="m3r-btn-extra" class="${canBuy ? 'm3r-btn-3d' : 'm3r-btn-flat'}" style="width:100%;padding:14px;font-size:16px;font-weight:800;color:white;background:${canBuy ? 'linear-gradient(180deg,#FFA726,#EF6C00)' : 'rgba(255,255,255,0.1)'};border:none;border-radius:14px;cursor:pointer;box-shadow:${canBuy ? '0 4px 0 #BF360C,0 6px 12px rgba(239,108,0,0.3)' : 'none'};margin-bottom:10px;font-family:'Segoe UI',system-ui,sans-serif;${canBuy ? '' : 'border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);'}">
             +5 이동 (${extraCost}🪙)
           </button>
-          <button id="m3r-btn-retry" style="width:100%;padding:14px;font-size:16px;font-weight:900;color:white;background:linear-gradient(180deg,#42A5F5,#1565C0);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #0D47A1,0 6px 12px rgba(21,101,192,0.3);margin-bottom:10px;font-family:'Segoe UI',system-ui,sans-serif;">
+          <button id="m3r-btn-retry" class="m3r-btn-3d" style="width:100%;padding:14px;font-size:16px;font-weight:900;color:white;background:linear-gradient(180deg,#42A5F5,#1565C0);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #0D47A1,0 6px 12px rgba(21,101,192,0.3);margin-bottom:10px;font-family:'Segoe UI',system-ui,sans-serif;">
             재시도
           </button>
-          <button id="m3r-btn-home" style="width:100%;padding:12px;font-size:14px;font-weight:700;color:rgba(255,255,255,0.5);background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;">
+          <button id="m3r-btn-home" class="m3r-btn-flat" style="width:100%;padding:12px;font-size:14px;font-weight:700;color:rgba(255,255,255,0.5);background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;">
             ${this.isDaily ? '메인 메뉴' : '레벨 선택'}
           </button>
         `;
@@ -117,6 +117,12 @@ export class ResultScene extends Phaser.Scene {
           0% { transform:translateY(-20px) rotate(0deg);opacity:1; }
           100% { transform:translateY(${H}px) rotate(720deg);opacity:0.3; }
         }
+        .m3r-btn-3d { transition:transform 0.15s ease,filter 0.15s ease; }
+        .m3r-btn-3d:hover { transform:translateY(-2px);filter:brightness(1.1); }
+        .m3r-btn-3d:active { transform:translateY(3px) scale(0.98) !important;filter:brightness(0.9) !important; }
+        .m3r-btn-flat { transition:all 0.2s ease; }
+        .m3r-btn-flat:hover { background:rgba(255,255,255,0.15) !important;color:rgba(255,255,255,0.9) !important;transform:translateY(-1px); }
+        .m3r-btn-flat:active { transform:translateY(2px) scale(0.98); }
       </style>
 
       ${this.cleared ? this._generateConfettiHTML() : ''}
@@ -145,6 +151,30 @@ export class ResultScene extends Phaser.Scene {
     container.style.opacity = '0';
     container.style.transition = 'opacity 0.3s ease';
     this.time.delayedCall(50, () => { container.style.opacity = '1'; });
+
+    // 점수 카운트업 애니메이션
+    this.time.delayedCall(400, () => {
+      const scoreEl = container.querySelector('#m3r-score-val');
+      const coinEl = container.querySelector('#m3r-coin-val');
+      if (scoreEl && this.score > 0) {
+        let cur = 0;
+        const step = Math.ceil(this.score / 25);
+        const iv = setInterval(() => {
+          cur = Math.min(cur + step, this.score);
+          scoreEl.textContent = cur.toLocaleString();
+          if (cur >= this.score) clearInterval(iv);
+        }, 30);
+      }
+      if (coinEl && this.coins > 0) {
+        let cur = 0;
+        const step = Math.ceil(this.coins / 20);
+        const iv = setInterval(() => {
+          cur = Math.min(cur + step, this.coins);
+          coinEl.textContent = `+${cur}`;
+          if (cur >= this.coins) clearInterval(iv);
+        }, 40);
+      }
+    });
 
     // 버튼 이벤트
     const nav = (scene, data) => {

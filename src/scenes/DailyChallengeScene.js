@@ -79,7 +79,7 @@ export class DailyChallengeScene extends Phaser.Scene {
       `;
     } else {
       actionHTML = `
-        <button id="m3d-btn-start" style="width:100%;padding:18px;font-size:22px;font-weight:900;color:white;background:linear-gradient(180deg,#FFA726 0%,#FB8C00 40%,#EF6C00 100%);border:none;border-radius:16px;cursor:pointer;box-shadow:0 6px 0 #BF360C,0 8px 20px rgba(239,108,0,0.4),inset 0 1px 0 rgba(255,255,255,0.2);font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;transition:transform 0.1s;">
+        <button id="m3d-btn-start" class="m3d-btn-3d" style="width:100%;padding:18px;font-size:22px;font-weight:900;color:white;background:linear-gradient(180deg,#FFA726 0%,#FB8C00 40%,#EF6C00 100%);border:none;border-radius:16px;cursor:pointer;box-shadow:0 6px 0 #BF360C,0 8px 20px rgba(239,108,0,0.4),inset 0 1px 0 rgba(255,255,255,0.2);font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;">
           <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);border-radius:16px 16px 0 0;pointer-events:none;"></div>
           🔥 도전 시작!
         </button>
@@ -97,8 +97,13 @@ export class DailyChallengeScene extends Phaser.Scene {
     container.innerHTML = `
       <style>
         @keyframes m3d-slide-up { from { opacity:0;transform:translateY(20px); } to { opacity:1;transform:translateY(0); } }
-        @keyframes m3d-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
-        .m3d-btn-3d:active { transform:translateY(4px) !important; }
+        @keyframes m3d-flame { 0%,100% { transform:translateY(0) scale(1);filter:brightness(1); } 25% { transform:translateY(-6px) scale(1.05);filter:brightness(1.1); } 50% { transform:translateY(-10px) scale(1.02);filter:brightness(1.2); } 75% { transform:translateY(-4px) scale(1.08);filter:brightness(1.05); } }
+        .m3d-btn-3d { transition:transform 0.15s ease,filter 0.15s ease; }
+        .m3d-btn-3d:hover { transform:translateY(-2px);filter:brightness(1.1); }
+        .m3d-btn-3d:active { transform:translateY(3px) scale(0.98) !important;filter:brightness(0.95) !important; }
+        #m3d-back { transition:all 0.15s ease; }
+        #m3d-back:hover { background:rgba(255,255,255,0.18) !important;transform:translateX(-2px); }
+        #m3d-back:active { transform:translateX(1px) scale(0.95); }
       </style>
 
       <!-- Header -->
@@ -112,7 +117,7 @@ export class DailyChallengeScene extends Phaser.Scene {
 
       <!-- Title area -->
       <div style="text-align:center;margin-bottom:16px;animation:m3d-slide-up 0.5s ease-out;">
-        <div style="font-size:48px;animation:m3d-float 3s ease-in-out infinite;margin-bottom:8px;">🔥</div>
+        <div style="font-size:48px;animation:m3d-flame 2s ease-in-out infinite;margin-bottom:8px;">🔥</div>
         <h1 style="color:#FFD54F;font-size:32px;font-weight:900;margin:0 0 4px;">일일 도전</h1>
         <div style="color:rgba(255,255,255,0.4);font-size:14px;">${todayStr}</div>
       </div>

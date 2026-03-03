@@ -42,8 +42,17 @@ export class MenuScene extends Phaser.Scene {
           50% { text-shadow:0 0 30px rgba(255,215,0,0.8),0 2px 4px rgba(0,0,0,0.8),0 0 80px rgba(255,165,0,0.4);filter:brightness(1.1); }
         }
         @keyframes m3-badge-bounce { 0%,100% { transform:scale(1); } 50% { transform:scale(1.1); } }
-        .m3-btn-3d { transition:transform 0.1s; }
-        .m3-btn-3d:active { transform:translateY(4px) !important; }
+        .m3-btn-3d { transition:transform 0.15s ease,filter 0.15s ease,box-shadow 0.15s ease; }
+        .m3-btn-3d:hover { transform:translateY(-2px);filter:brightness(1.1); }
+        .m3-btn-3d:active { transform:translateY(3px) scale(0.98) !important;filter:brightness(0.95) !important; }
+        #m3-btn-settings { transition:all 0.2s ease; }
+        #m3-btn-settings:hover { background:rgba(255,255,255,0.14) !important;color:rgba(255,255,255,0.9) !important;transform:translateY(-1px); }
+        #m3-btn-settings:active { transform:translateY(2px) scale(0.98); }
+        .m3-nav-item { transition:transform 0.15s ease,background 0.15s ease; }
+        .m3-nav-item:hover { background:rgba(255,215,0,0.1) !important;transform:translateY(-2px); }
+        .m3-coin-plus { transition:transform 0.15s ease,box-shadow 0.15s ease; }
+        .m3-coin-plus:hover { transform:scale(1.15);box-shadow:0 2px 12px rgba(76,175,80,0.6) !important; }
+        .m3-coin-plus:active { transform:scale(0.9); }
       </style>
 
       ${particlesHTML}
@@ -70,7 +79,7 @@ export class MenuScene extends Phaser.Scene {
       <div style="display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,215,0,0.2);border-radius:25px;padding:8px 20px 8px 12px;margin-bottom:40px;backdrop-filter:blur(10px);animation:m3-slide-up 0.8s ease-out 0.2s both;">
         <span style="font-size:22px;">🪙</span>
         <span style="color:#FFD54F;font-weight:800;font-size:18px;font-family:monospace;">${coins.toLocaleString()}</span>
-        <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#4CAF50,#2E7D32);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:white;margin-left:4px;cursor:pointer;box-shadow:0 2px 8px rgba(76,175,80,0.4);">+</div>
+        <div class="m3-coin-plus" style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#4CAF50,#2E7D32);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:white;margin-left:4px;cursor:pointer;box-shadow:0 2px 8px rgba(76,175,80,0.4);">+</div>
       </div>
 
       <!-- Buttons -->
@@ -103,7 +112,7 @@ export class MenuScene extends Phaser.Scene {
       <div style="position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:0;padding:12px 20px;background:linear-gradient(180deg,transparent,rgba(0,0,0,0.6));">
         ${['🏠,홈,true', '🗺️,모험,false', '👥,친구,false', '🎁,상점,false'].map(item => {
           const [icon, label, active] = item.split(',');
-          return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 20px;border-radius:12px;cursor:pointer;background:${active === 'true' ? 'rgba(255,215,0,0.1)' : 'transparent'};">
+          return `<div class="m3-nav-item" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 20px;border-radius:12px;cursor:pointer;background:${active === 'true' ? 'rgba(255,215,0,0.1)' : 'transparent'};">
             <span style="font-size:22px;">${icon}</span>
             <span style="font-size:10px;font-weight:700;color:${active === 'true' ? '#FFD54F' : 'rgba(255,255,255,0.4)'};">${label}</span>
           </div>`;
@@ -140,15 +149,6 @@ export class MenuScene extends Phaser.Scene {
     });
     container.querySelector('#m3-btn-settings').addEventListener('pointerup', () => nav('Settings'));
 
-    // 설정 버튼 호버
-    const settingsBtn = container.querySelector('#m3-btn-settings');
-    settingsBtn.addEventListener('pointerenter', () => {
-      settingsBtn.style.background = 'rgba(255,255,255,0.12)';
-      settingsBtn.style.color = 'rgba(255,255,255,0.9)';
-    });
-    settingsBtn.addEventListener('pointerleave', () => {
-      settingsBtn.style.background = 'rgba(255,255,255,0.08)';
-      settingsBtn.style.color = 'rgba(255,255,255,0.7)';
-    });
+    // 설정 버튼 호버는 CSS로 처리 (#m3-btn-settings:hover)
   }
 }

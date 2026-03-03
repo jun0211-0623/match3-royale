@@ -612,8 +612,16 @@ export class GameScene extends Phaser.Scene {
     `;
 
     container.innerHTML = `
-      <style>.m3p-btn:active{transform:translateY(4px)!important;}</style>
-      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:36px 32px;text-align:center;max-width:300px;width:90%;border:1px solid rgba(255,215,0,0.2);box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+      <style>
+        @keyframes m3p-card-enter{from{opacity:0;transform:scale(0.9);}to{opacity:1;transform:scale(1);}}
+        .m3p-btn{transition:transform 0.15s ease,filter 0.15s ease;}
+        .m3p-btn:hover{transform:translateY(-2px);filter:brightness(1.1);}
+        .m3p-btn:active{transform:translateY(3px) scale(0.98)!important;filter:brightness(0.95)!important;}
+        .m3p-btn-flat{transition:all 0.2s ease;}
+        .m3p-btn-flat:hover{background:rgba(255,255,255,0.14)!important;color:rgba(255,255,255,0.9)!important;transform:translateY(-1px);}
+        .m3p-btn-flat:active{transform:translateY(2px) scale(0.98);}
+      </style>
+      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:36px 32px;text-align:center;max-width:300px;width:90%;border:1px solid rgba(255,215,0,0.2);box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:m3p-card-enter 0.25s ease-out;">
         <h2 style="color:#FFD54F;font-size:28px;font-weight:900;margin:0 0 30px;">⏸ 일시정지</h2>
         <div style="display:flex;flex-direction:column;gap:12px;">
           <button id="m3p-resume" class="m3p-btn" style="width:100%;padding:16px;font-size:20px;font-weight:900;color:white;border:none;border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;transition:transform 0.1s;background:linear-gradient(180deg,#66BB6A 0%,#43A047 40%,#2E7D32 100%);box-shadow:0 5px 0 #1B5E20,0 7px 16px rgba(46,125,50,0.4);">
@@ -624,7 +632,7 @@ export class GameScene extends Phaser.Scene {
             <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;"></div>
             재시작
           </button>
-          <button id="m3p-exit" class="m3p-btn" style="width:100%;padding:14px;font-size:16px;font-weight:700;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;transition:transform 0.1s;">
+          <button id="m3p-exit" class="m3p-btn-flat" style="width:100%;padding:14px;font-size:16px;font-weight:700;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;">
             ${this.isDaily ? '일일 도전' : '레벨 선택'}
           </button>
         </div>
@@ -676,13 +684,19 @@ export class GameScene extends Phaser.Scene {
     `;
 
     container.innerHTML = `
-      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:32px 28px;text-align:center;max-width:320px;width:90%;border:1px solid rgba(255,82,82,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+      <style>
+        @keyframes m3e-card-enter{from{opacity:0;transform:scale(0.9);}to{opacity:1;transform:scale(1);}}
+        .m3e-btn{transition:transform 0.15s ease,filter 0.15s ease;}
+        .m3e-btn:hover{transform:translateY(-1px);filter:brightness(1.1);}
+        .m3e-btn:active{transform:translateY(2px) scale(0.98)!important;filter:brightness(0.9)!important;}
+      </style>
+      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:32px 28px;text-align:center;max-width:320px;width:90%;border:1px solid rgba(255,82,82,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:m3e-card-enter 0.25s ease-out;">
         <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
         <h3 style="color:white;font-size:22px;font-weight:900;margin:0 0 8px;">나가시겠습니까?</h3>
         <p style="color:rgba(255,255,255,0.5);font-size:14px;margin:0 0 24px;">진행 상황이 저장되지 않습니다</p>
         <div style="display:flex;gap:10px;">
-          <button id="m3e-exit" style="flex:1;padding:14px;font-size:16px;font-weight:800;color:white;background:linear-gradient(180deg,#EF5350,#C62828);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #B71C1C,0 6px 12px rgba(198,40,40,0.3);font-family:'Segoe UI',system-ui,sans-serif;">나가기</button>
-          <button id="m3e-stay" style="flex:1;padding:14px;font-size:16px;font-weight:800;color:white;background:linear-gradient(180deg,#66BB6A,#2E7D32);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #1B5E20,0 6px 12px rgba(46,125,50,0.3);font-family:'Segoe UI',system-ui,sans-serif;">계속하기</button>
+          <button id="m3e-exit" class="m3e-btn" style="flex:1;padding:14px;font-size:16px;font-weight:800;color:white;background:linear-gradient(180deg,#EF5350,#C62828);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #B71C1C,0 6px 12px rgba(198,40,40,0.3);font-family:'Segoe UI',system-ui,sans-serif;">나가기</button>
+          <button id="m3e-stay" class="m3e-btn" style="flex:1;padding:14px;font-size:16px;font-weight:800;color:white;background:linear-gradient(180deg,#66BB6A,#2E7D32);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #1B5E20,0 6px 12px rgba(46,125,50,0.3);font-family:'Segoe UI',system-ui,sans-serif;">계속하기</button>
         </div>
       </div>
     `;
@@ -749,14 +763,19 @@ export class GameScene extends Phaser.Scene {
     `;
 
     container.innerHTML = `
-      <style>@keyframes m3g-slide-up{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}</style>
+      <style>
+        @keyframes m3g-slide-up{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+        .m3g-start-btn{transition:transform 0.15s ease,filter 0.15s ease;}
+        .m3g-start-btn:hover{transform:translateY(-2px);filter:brightness(1.1);}
+        .m3g-start-btn:active{transform:translateY(3px) scale(0.98)!important;filter:brightness(0.95)!important;}
+      </style>
       <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:32px;text-align:center;max-width:320px;width:90%;border:1px solid rgba(255,215,0,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:m3g-slide-up 0.4s ease-out;">
         <h2 style="color:#FFD54F;font-size:28px;font-weight:900;margin:0 0 8px;">${this.isDaily ? '일일 도전 🔥' : `LEVEL ${this.level}`}</h2>
         <p style="color:rgba(255,255,255,0.6);font-size:16px;margin:0 0 20px;">이동 ${this.goalManager.moves}회</p>
         <div style="display:flex;flex-direction:column;padding:0 20px;margin-bottom:24px;">
           ${goalsHTML}
         </div>
-        <button id="m3g-start" style="width:100%;padding:16px;font-size:22px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A 0%,#43A047 40%,#2E7D32 100%);border:none;border-radius:14px;cursor:pointer;box-shadow:0 5px 0 #1B5E20,0 7px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;">
+        <button id="m3g-start" class="m3g-start-btn" style="width:100%;padding:16px;font-size:22px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A 0%,#43A047 40%,#2E7D32 100%);border:none;border-radius:14px;cursor:pointer;box-shadow:0 5px 0 #1B5E20,0 7px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;">
           <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;"></div>
           시작!
         </button>
@@ -803,10 +822,16 @@ export class GameScene extends Phaser.Scene {
     `;
 
     container.innerHTML = `
-      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:36px 32px;text-align:center;max-width:320px;width:90%;border:1px solid rgba(76,175,80,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+      <style>
+        @keyframes m3t-card-enter{from{opacity:0;transform:scale(0.92);}to{opacity:1;transform:scale(1);}}
+        .m3t-btn{transition:transform 0.15s ease,filter 0.15s ease;}
+        .m3t-btn:hover{transform:translateY(-2px);filter:brightness(1.1);}
+        .m3t-btn:active{transform:translateY(3px) scale(0.98)!important;filter:brightness(0.95)!important;}
+      </style>
+      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:36px 32px;text-align:center;max-width:320px;width:90%;border:1px solid rgba(76,175,80,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:m3t-card-enter 0.3s ease-out;">
         <div id="m3t-icon" style="font-size:48px;margin-bottom:12px;">${steps[0].icon}</div>
         <p id="m3t-text" style="color:white;font-size:18px;line-height:1.6;margin:0 0 24px;white-space:pre-line;">${steps[0].text}</p>
-        <button id="m3t-next" style="width:180px;padding:14px;font-size:20px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A 0%,#43A047 40%,#2E7D32 100%);border:none;border-radius:14px;cursor:pointer;box-shadow:0 5px 0 #1B5E20,0 7px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;">
+        <button id="m3t-next" class="m3t-btn" style="width:180px;padding:14px;font-size:20px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A 0%,#43A047 40%,#2E7D32 100%);border:none;border-radius:14px;cursor:pointer;box-shadow:0 5px 0 #1B5E20,0 7px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;">
           <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;"></div>
           다음
         </button>

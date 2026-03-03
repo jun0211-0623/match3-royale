@@ -45,6 +45,17 @@ export class LevelSelectScene extends Phaser.Scene {
     style.textContent = `
       .m3l-scroll::-webkit-scrollbar { display:none; }
       @keyframes m3l-node-pop { from { transform:scale(0);opacity:0; } to { transform:scale(1);opacity:1; } }
+      .m3l-level-node { transition:transform 0.15s ease,filter 0.15s ease,box-shadow 0.15s ease; }
+      .m3l-level-node:hover { transform:scale(1.12) !important;filter:brightness(1.15);z-index:5; }
+      .m3l-level-node:active { transform:scale(0.95) !important; }
+      @keyframes m3l-current-pulse {
+        0%,100% { box-shadow:0 4px 0 #BF360C,0 6px 16px rgba(239,108,0,0.4),0 0 20px rgba(255,167,38,0.3); }
+        50% { box-shadow:0 4px 0 #BF360C,0 6px 16px rgba(239,108,0,0.4),0 0 35px rgba(255,167,38,0.6); }
+      }
+      .m3l-level-current { animation:m3l-current-pulse 2s ease-in-out infinite !important; }
+      #m3l-back { transition:all 0.15s ease; }
+      #m3l-back:hover { background:rgba(255,255,255,0.18) !important;transform:translateX(-2px); }
+      #m3l-back:active { transform:translateX(1px) scale(0.95); }
     `;
     container.appendChild(style);
     scrollArea.className = 'm3l-scroll';
@@ -139,7 +150,7 @@ export class LevelSelectScene extends Phaser.Scene {
           ${stars > 0 ? `<div style="position:absolute;bottom:-16px;display:flex;gap:1px;">${'⭐'.repeat(stars)}</div>` : ''}
         `;
         node.dataset.level = level;
-        node.className = 'm3l-level-node';
+        node.className = 'm3l-level-node' + (isCurrent ? ' m3l-level-current' : '');
       } else {
         node.style.background = 'rgba(255,255,255,0.05)';
         node.style.border = '1px solid rgba(255,255,255,0.08)';
