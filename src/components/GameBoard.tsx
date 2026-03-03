@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
-import { Board } from '../engine';
-import { evaluate as evaluateDirect } from '../engine/evaluate';
+import { CustomBoard } from '../engine/customBoard';
+import type { SpecialType, SpecialGem, MatchGroup } from '../engine/customBoard';
 import { GEM_CONFIG } from '../constants/gems';
 
 const BOARD_SIZE = 8;
@@ -30,86 +30,36 @@ function getLiveStars(score: number, target: number): number {
   return 0;
 }
 
-// ── 특수 보석 ─────────────────────────────────────────────────────
-type SpecialType = 'line-h' | 'line-v' | 'rainbow' | 'bomb';
-interface SpecialGem { type: SpecialType; gemType: number; }
-
-// board.orbs 직접 스캔으로 4+ 연속 보석 탐지 (board.matches의 combine에 의존하지 않음)
-function findSpecialGems(
-  board: Board
-): Array<{ dr: number; dc: number; type: SpecialType; gemType: number }> {
-  const orbs = board.orbs; // orbs[col][row], col-major
-  const results: Array<{ dr: number; dc: number; type: SpecialType; gemType: number }> = [];
-  const used = new Set<string>();
-
-  // 가로 런 (같은 displayRow, 연속 displayCol)
-  for (let row = 0; row < BOARD_SIZE; row++) {
-    let s = 0;
-    for (let col = 1; col <= BOARD_SIZE; col++) {
-      if (col < BOARD_SIZE && orbs[col][row] === orbs[s][row]) continue;
-      const len = col - s;
-      if (len >= 4) {
-        const mid = s + Math.floor((len - 1) / 2);
-        const key = `${row},${mid}`;
-        if (!used.has(key)) {
-          results.push({ dr: row, dc: mid, type: len >= 5 ? 'rainbow' : 'line-h', gemType: orbs[mid][row] as number });
-          used.add(key);
-        }
-      }
-      s = col;
-    }
-  }
-
-  // 세로 런 (같은 displayCol, 연속 displayRow)
-  for (let col = 0; col < BOARD_SIZE; col++) {
-    let s = 0;
-    for (let row = 1; row <= BOARD_SIZE; row++) {
-      if (row < BOARD_SIZE && orbs[col][row] === orbs[col][s]) continue;
-      const len = row - s;
-      if (len >= 4) {
-        const mid = s + Math.floor((len - 1) / 2);
-        const key = `${mid},${col}`;
-        if (!used.has(key)) {
-          results.push({ dr: mid, dc: col, type: len >= 5 ? 'rainbow' : 'line-v', gemType: orbs[col][mid] as number });
-          used.add(key);
-        }
-      }
-      s = row;
-    }
-  }
-
-  return results;
-}
-
-// 특수 효과 범위 계산 → 엔진 형식 [col, row][]
+// ── 특수 효과 범위 계산 → [row, col][] ────────────────────────────────
 function buildEffectPositions(
   type: SpecialType,
   displayRow: number,
   displayCol: number,
-  board: Board,
+  board: CustomBoard,
   targetRow: number,
   targetCol: number,
-): number[][] {
-  const pos: number[][] = [];
+): [number, number][] {
+  const pos: [number, number][] = [];
   switch (type) {
     case 'line-h':
-      for (let c = 0; c < BOARD_SIZE; c++) pos.push([c, displayRow]);
+      for (let c = 0; c < BOARD_SIZE; c++) pos.push([displayRow, c]);
       break;
     case 'line-v':
-      for (let r = 0; r < BOARD_SIZE; r++) pos.push([displayCol, r]);
+      for (let r = 0; r < BOARD_SIZE; r++) pos.push([r, displayCol]);
       break;
     case 'bomb':
       for (let dr = -1; dr <= 1; dr++)
         for (let dc = -1; dc <= 1; dc++) {
           const r = displayRow + dr, c = displayCol + dc;
-          if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) pos.push([c, r]);
+          if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) pos.push([r, c]);
         }
       break;
     case 'rainbow': {
-      const gemType = board.orbs[targetCol][targetRow] as number;
-      for (let c = 0; c < BOARD_SIZE; c++)
-        for (let r = 0; r < BOARD_SIZE; r++)
-          if (board.orbs[c][r] === gemType) pos.push([c, r]);
+      // 대상 셀의 색상과 같은 모든 보석 제거
+      const gemType = board.orbs[targetRow][targetCol];
+      for (let r = 0; r < BOARD_SIZE; r++)
+        for (let c = 0; c < BOARD_SIZE; c++)
+          if (board.orbs[r][c] === gemType) pos.push([r, c]);
       break;
     }
   }
@@ -118,18 +68,9 @@ function buildEffectPositions(
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
-function toDisplay(board: Board): number[][] {
-  return Array.from({ length: BOARD_SIZE }, (_, row) =>
-    Array.from({ length: BOARD_SIZE }, (_, col) => board.orbs[col][row] as number)
-  );
-}
-
-function getMatchedPositions(board: Board): [number, number][] {
-  const pos: [number, number][] = [];
-  board.matches.forEach(match =>
-    match.forEach(([engCol, engRow]) => pos.push([engRow, engCol]))
-  );
-  return pos;
+// row-major 직접 복사
+function toDisplay(board: CustomBoard): number[][] {
+  return board.orbs.map(row => [...row]);
 }
 
 function makeStyles(): React.CSSProperties[][] {
@@ -142,11 +83,11 @@ function isAdj(r1: number, c1: number, r2: number, c2: number) {
   return (Math.abs(r1 - r2) === 1 && c1 === c2) || (Math.abs(c1 - c2) === 1 && r1 === r2);
 }
 
-function calcMatchScore(board: Board, comboIdx: number): number {
+function calcMatchScore(matches: MatchGroup[], comboIdx: number): number {
   const mult = COMBO_MULT[Math.min(comboIdx, 3)];
   let total = 0;
-  board.matches.forEach((match: number[][]) => {
-    const len = match.length;
+  matches.forEach(match => {
+    const len = match.cells.length;
     const base = len >= 5 ? 200 : len === 4 ? 100 : 50;
     total += base * mult;
   });
@@ -154,7 +95,7 @@ function calcMatchScore(board: Board, comboIdx: number): number {
 }
 
 export default function GameBoard() {
-  const boardRef        = useRef(new Board(BOARD_SIZE, BOARD_SIZE, [0, 1, 2, 3, 4, 5, 6]));
+  const boardRef        = useRef(new CustomBoard(BOARD_SIZE, BOARD_SIZE, [0, 1, 2, 3, 4, 5, 6]));
   const scoreRef        = useRef(0);
   const stageRef        = useRef(1);
   const stageClearedRef = useRef(false);
@@ -177,7 +118,7 @@ export default function GameBoard() {
 
   // ─── 리셋 공통 ──────────────────────────────────────────────────
   const initState = useCallback((targetStage: number) => {
-    boardRef.current        = new Board(BOARD_SIZE, BOARD_SIZE, [0, 1, 2, 3, 4, 5, 6]);
+    boardRef.current        = new CustomBoard(BOARD_SIZE, BOARD_SIZE, [0, 1, 2, 3, 4, 5, 6]);
     scoreRef.current        = 0;
     stageRef.current        = targetStage;
     stageClearedRef.current = false;
@@ -211,21 +152,23 @@ export default function GameBoard() {
       stageClearedRef.current = true;
       setClearedStars(getStars(newScore, target));
       setStageCleared(true);
-      return true; // cleared
+      return true;
     }
     return false;
   }, []);
 
   // ─── 연쇄 루프 (공통) ────────────────────────────────────────
   const runCascadeLoop = useCallback(async (
-    board: Board,
+    board: CustomBoard,
     comboIdxStart: number,
   ): Promise<number> => {
     let comboIdx  = comboIdxStart;
     let totalScore = 0;
 
     while (board.hasMatch()) {
-      const gained = calcMatchScore(board, comboIdx);
+      // 현재 매치 평가 (점수 + 특수보석 탐지 + 중력 적용 통합)
+      const result = board.evaluate();
+      const gained = calcMatchScore(result.matches, comboIdx);
       totalScore += gained;
 
       if (comboIdx > 0) {
@@ -234,49 +177,43 @@ export default function GameBoard() {
         setComboKey(k => k + 1);
       }
 
-      // 특수 보석 감지 (board.orbs 직접 스캔)
-      const newSpecials = findSpecialGems(board);
-
-      const dying = getMatchedPositions(board);
-      const colCounts = new Map<number, number>();
-      dying.forEach(([, c]) => colCounts.set(c, (colCounts.get(c) ?? 0) + 1));
-
-      // 죽는 위치의 특수 보석 제거
-      dying.forEach(([r, c]) => specialGemsRef.current.delete(`${r},${c}`));
-
-      // 소멸 애니메이션
+      // 소멸 애니메이션 (매치된 모든 셀 + 스폰 위치 포함)
       const dieTr = `transform ${T_DIE}ms ease-in, opacity ${T_DIE}ms ease-in`;
       const s2 = makeStyles();
-      dying.forEach(([r, c]) => {
+      result.allMatched.forEach(([r, c]) => {
         s2[r][c] = { transform: 'scale(0) rotate(20deg)', opacity: 0, transition: dieTr };
       });
       setStyles(s2);
       await sleep(T_DIE);
 
-      board.evaluate();
-      board.resetAttic();
-      const newDisplay = toDisplay(board);
-
-      // 새 특수 보석 스폰
-      newSpecials.forEach(({ dr, dc, type, gemType }) => {
-        specialGemsRef.current.set(`${dr},${dc}`, { type, gemType });
+      // 특수 보석 상태 업데이트: cleared 제거, spawned 추가
+      result.cleared.forEach(([r, c]) => specialGemsRef.current.delete(`${r},${c}`));
+      result.spawned.forEach(({ row, col }) => specialGemsRef.current.delete(`${row},${col}`));
+      result.spawned.forEach(({ row, col, type, gemType }) => {
+        specialGemsRef.current.set(`${row},${col}`, { type, gemType });
       });
       setSpecialGems(new Map(specialGemsRef.current));
 
-      // 낙하 시작
+      const newDisplay = toDisplay(board);
+
+      // 낙하 시작 (새 보석은 화면 위에서 내려옴, 스폰 보석은 팝인)
       const s3 = makeStyles();
-      colCounts.forEach((count, col) => {
+      result.colCounts.forEach((count, col) => {
         for (let r = 0; r < count; r++)
-          s3[r][col] = { transform: `translateY(-${CELL_PX * (count - r)}px)`, opacity: 0, transition: 'none' };
+          s3[r][col] = { transform: `translateY(-${CELL_PX * count}px)`, opacity: 0, transition: 'none' };
+      });
+      // 스폰 위치: 축소 상태에서 시작
+      result.spawned.forEach(({ row, col }) => {
+        s3[row][col] = { transform: 'scale(0)', opacity: 0, transition: 'none' };
       });
       setDisplay(newDisplay);
       setStyles(s3);
       await sleep(T_PAUSE);
 
-      // 낙하 진입
+      // 낙하 + 스폰 팝인 애니메이션
       const s4 = makeStyles();
       let maxDelay = 0;
-      colCounts.forEach((count, col) => {
+      result.colCounts.forEach((count, col) => {
         for (let r = 0; r < count; r++) {
           const delay = (count - 1 - r) * 35;
           maxDelay = Math.max(maxDelay, delay);
@@ -286,6 +223,14 @@ export default function GameBoard() {
             transition: `transform ${T_FALL}ms cubic-bezier(0.18,0.89,0.32,1.2) ${delay}ms, opacity ${T_FALL * 0.5}ms ease ${delay}ms`,
           };
         }
+      });
+      // 스폰 보석: 탄성 팝인
+      result.spawned.forEach(({ row, col }) => {
+        s4[row][col] = {
+          transform: 'scale(1)',
+          opacity: 1,
+          transition: `transform ${Math.round(T_FALL * 0.7)}ms cubic-bezier(0.34,1.56,0.64,1), opacity ${Math.round(T_FALL * 0.4)}ms ease`,
+        };
       });
       setStyles(s4);
       await sleep(T_FALL + maxDelay + T_PAUSE);
@@ -309,26 +254,18 @@ export default function GameBoard() {
 
     // 효과 범위 수집 (중복 제거)
     const posSet = new Set<string>();
-    const addRange = (positions: number[][]) => {
-      positions.forEach(([c, r]) => posSet.add(`${r},${c}`));
+    const addRange = (positions: [number, number][]) => {
+      positions.forEach(([r, c]) => posSet.add(`${r},${c}`));
     };
 
     if (srcSpecial) addRange(buildEffectPositions(srcSpecial.type, sr, sc, board, tr, tc));
     if (tgtSpecial) addRange(buildEffectPositions(tgtSpecial.type, tr, tc, board, sr, sc));
-    // 두 셀 모두 포함
     posSet.add(`${sr},${sc}`);
     posSet.add(`${tr},${tc}`);
 
-    // 특수 보석 제거
-    specialGemsRef.current.delete(`${sr},${sc}`);
-    specialGemsRef.current.delete(`${tr},${tc}`);
+    // 효과 범위 내 특수 보석 모두 제거
+    posSet.forEach(key => specialGemsRef.current.delete(key));
     setSpecialGems(new Map(specialGemsRef.current));
-
-    // 엔진 형식 [col, row][]
-    const fakeMatch: number[][] = [...posSet].map(key => {
-      const [r, c] = key.split(',').map(Number);
-      return [c, r];
-    });
 
     // 소멸 애니메이션
     const dieTr = `transform ${T_DIE}ms ease-in, opacity ${T_DIE}ms ease-in`;
@@ -340,29 +277,29 @@ export default function GameBoard() {
     setStyles(s);
     await sleep(T_DIE);
 
-    // 컬럼별 제거 수
-    const colCounts = new Map<number, number>();
-    fakeMatch.forEach(([engCol]) => colCounts.set(engCol, (colCounts.get(engCol) ?? 0) + 1));
+    // 커스텀 엔진으로 해당 셀 제거
+    const cells: [number, number][] = [...posSet].map(key => {
+      const [r, c] = key.split(',').map(Number);
+      return [r, c];
+    });
+    const result = board.clearCells(cells);
 
-    // 직접 평가 (엔진 하위 함수 호출)
-    const [newOrbs] = evaluateDirect(board.orbs, [fakeMatch], board.attic.orbs);
-    board.orbs = newOrbs;
-    board.resetAttic();
+    const newDisplay = toDisplay(board);
 
     // 낙하 시작
     const s3 = makeStyles();
-    colCounts.forEach((count, col) => {
+    result.colCounts.forEach((count, col) => {
       for (let r = 0; r < count; r++)
-        s3[r][col] = { transform: `translateY(-${CELL_PX * (count - r)}px)`, opacity: 0, transition: 'none' };
+        s3[r][col] = { transform: `translateY(-${CELL_PX * count}px)`, opacity: 0, transition: 'none' };
     });
-    setDisplay(toDisplay(board));
+    setDisplay(newDisplay);
     setStyles(s3);
     await sleep(T_PAUSE);
 
     // 낙하 진입
     const s4 = makeStyles();
     let maxDelay = 0;
-    colCounts.forEach((count, col) => {
+    result.colCounts.forEach((count, col) => {
       for (let r = 0; r < count; r++) {
         const delay = (count - 1 - r) * 35;
         maxDelay = Math.max(maxDelay, delay);
@@ -412,12 +349,12 @@ export default function GameBoard() {
     setStyles(s1);
     await sleep(T_SWAP);
 
-    // ② 엔진 스왑
-    board.swap([[sc, sr], [tc, tr]]);
+    // ② 엔진 스왑 (row-major)
+    board.swap(sr, sc, tr, tc);
 
     if (!board.hasMatch()) {
-      // ③ 매치 없음
-      board.swap([[tc, tr], [sc, sr]]);
+      // ③ 매치 없음 → 되돌리기
+      board.swap(tr, tc, sr, sc);
       setDisplay(toDisplay(board));
       const shk = makeStyles();
       shk[sr][sc] = { animation: 'gem-shake 0.35s ease' };
