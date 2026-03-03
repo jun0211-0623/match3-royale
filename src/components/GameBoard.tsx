@@ -34,23 +34,51 @@ function getLiveStars(score: number, target: number): number {
 type SpecialType = 'line-h' | 'line-v' | 'rainbow' | 'bomb';
 interface SpecialGem { type: SpecialType; gemType: number; }
 
-// match[i] = [col, row] (엔진 좌표)
-function detectSpecialType(match: number[][]): SpecialType | null {
-  const len = match.length;
-  if (len < 4) return null;
-  const cols = new Set(match.map(m => m[0]));
-  const rows = new Set(match.map(m => m[1]));
-  if (len >= 5 && (rows.size === 1 || cols.size === 1)) return 'rainbow'; // 5개 직선
-  if (len >= 5) return 'bomb';                                              // L/T 자
-  if (rows.size === 1) return 'line-h';                                     // 4개 가로
-  if (cols.size === 1) return 'line-v';                                     // 4개 세로
-  return null;
-}
+// board.orbs 직접 스캔으로 4+ 연속 보석 탐지 (board.matches의 combine에 의존하지 않음)
+function findSpecialGems(
+  board: Board
+): Array<{ dr: number; dc: number; type: SpecialType; gemType: number }> {
+  const orbs = board.orbs; // orbs[col][row], col-major
+  const results: Array<{ dr: number; dc: number; type: SpecialType; gemType: number }> = [];
+  const used = new Set<string>();
 
-// 매치 중심 → [displayRow, displayCol]
-function getMatchCenter(match: number[][]): [number, number] {
-  const mid = match[Math.floor(match.length / 2)];
-  return [mid[1], mid[0]]; // engine [col, row] → display [row, col]
+  // 가로 런 (같은 displayRow, 연속 displayCol)
+  for (let row = 0; row < BOARD_SIZE; row++) {
+    let s = 0;
+    for (let col = 1; col <= BOARD_SIZE; col++) {
+      if (col < BOARD_SIZE && orbs[col][row] === orbs[s][row]) continue;
+      const len = col - s;
+      if (len >= 4) {
+        const mid = s + Math.floor((len - 1) / 2);
+        const key = `${row},${mid}`;
+        if (!used.has(key)) {
+          results.push({ dr: row, dc: mid, type: len >= 5 ? 'rainbow' : 'line-h', gemType: orbs[mid][row] as number });
+          used.add(key);
+        }
+      }
+      s = col;
+    }
+  }
+
+  // 세로 런 (같은 displayCol, 연속 displayRow)
+  for (let col = 0; col < BOARD_SIZE; col++) {
+    let s = 0;
+    for (let row = 1; row <= BOARD_SIZE; row++) {
+      if (row < BOARD_SIZE && orbs[col][row] === orbs[col][s]) continue;
+      const len = row - s;
+      if (len >= 4) {
+        const mid = s + Math.floor((len - 1) / 2);
+        const key = `${mid},${col}`;
+        if (!used.has(key)) {
+          results.push({ dr: mid, dc: col, type: len >= 5 ? 'rainbow' : 'line-v', gemType: orbs[col][mid] as number });
+          used.add(key);
+        }
+      }
+      s = row;
+    }
+  }
+
+  return results;
 }
 
 // 특수 효과 범위 계산 → 엔진 형식 [col, row][]
@@ -206,17 +234,8 @@ export default function GameBoard() {
         setComboKey(k => k + 1);
       }
 
-      // 매치 전 특수 보석 감지
-      const currentMatches = board.matches as number[][][];
-      const newSpecials: Array<{ dr: number; dc: number; type: SpecialType; gemType: number }> = [];
-      currentMatches.forEach((match: number[][]) => {
-        const sType = detectSpecialType(match);
-        if (sType) {
-          const gt = board.orbs[match[0][0]][match[0][1]] as number;
-          const [dr, dc] = getMatchCenter(match);
-          newSpecials.push({ dr, dc, type: sType, gemType: gt });
-        }
-      });
+      // 특수 보석 감지 (board.orbs 직접 스캔)
+      const newSpecials = findSpecialGems(board);
 
       const dying = getMatchedPositions(board);
       const colCounts = new Map<number, number>();
