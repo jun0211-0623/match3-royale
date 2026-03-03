@@ -27,6 +27,11 @@ const config = {
     activePointers: 1,  // 싱글 터치만 (멀티터치 방지)
   },
 
+  // DOM 오버레이 (UI를 실제 HTML/CSS로 렌더링)
+  dom: {
+    createContainer: true,
+  },
+
   // 렌더링 성능
   render: {
     antialias: false,       // 모바일 성능

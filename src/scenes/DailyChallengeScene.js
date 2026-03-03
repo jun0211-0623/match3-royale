@@ -2,8 +2,6 @@ import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
 import { SaveManager } from '../managers/SaveManager.js';
 import { audioManager } from '../managers/AudioManager.js';
-import { UIButton } from '../ui/UIButton.js';
-import { fadeToScene, fadeIn } from '../utils/SceneTransitions.js';
 
 export class DailyChallengeScene extends Phaser.Scene {
   constructor() {
@@ -11,211 +9,188 @@ export class DailyChallengeScene extends Phaser.Scene {
   }
 
   create() {
-    fadeIn(this);
-    const cx = GAME_CONFIG.WIDTH / 2;
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+    const cx = W / 2;
+    const cy = H / 2;
     const dailyData = SaveManager.getDailyData();
     const todayStr = this._getTodayStr();
     const alreadyDone = dailyData.history.includes(todayStr);
+    const dailyLevel = this._generateDailyLevel(todayStr);
+    const coins = SaveManager.getCoins();
 
-    // 배경
-    this.add.image(cx, GAME_CONFIG.HEIGHT / 2, 'bg_gradient');
-
-    // ─── 상단 헤더 ──────────────────────────────
-
-    // 뒤로가기 (glass button)
-    const backBg = this.add.graphics();
-    backBg.fillStyle(0xffffff, 0.1);
-    backBg.fillRoundedRect(16, 20, 44, 40, 12);
-    this.add.text(38, 40, '←', {
-      fontSize: '18px', color: '#ffffff',
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
-      .on('pointerup', () => fadeToScene(this, 'Menu'));
-
-    // 코인 pill
-    const coinPill = this.add.graphics();
-    coinPill.fillStyle(0x000000, 0.4);
-    coinPill.fillRoundedRect(GAME_CONFIG.WIDTH - 130, 22, 116, 36, 20);
-    coinPill.lineStyle(1, 0xFFD54F, 0.15);
-    coinPill.strokeRoundedRect(GAME_CONFIG.WIDTH - 130, 22, 116, 36, 20);
-    this.add.text(GAME_CONFIG.WIDTH - 112, 40, '🪙', { fontSize: '16px' }).setOrigin(0.5);
-    this.add.text(GAME_CONFIG.WIDTH - 72, 40, `${SaveManager.getCoins()}`, {
-      fontSize: '14px', fontStyle: 'bold', color: '#FFD54F', fontFamily: 'monospace',
-    }).setOrigin(0.5);
-
-    // ─── 타이틀 ─────────────────────────────────
-
-    this.add.text(cx, 110, '🔥', { fontSize: '48px' }).setOrigin(0.5);
-    this.add.text(cx, 160, '일일 도전', {
-      fontSize: '32px', fontStyle: 'bold', color: '#FFD54F',
-    }).setOrigin(0.5);
-
-    // 날짜
-    this.add.text(cx, 200, todayStr, {
-      fontSize: '14px', color: 'rgba(255,255,255,0.4)',
-    }).setOrigin(0.5);
-
-    // ─── 스트릭 카운터 ────────────────────────
-
-    const streakY = 250;
-    const streakPill = this.add.graphics();
-    streakPill.fillStyle(0xFFD54F, 0.1);
-    streakPill.fillRoundedRect(cx - 90, streakY - 20, 180, 40, 20);
-    streakPill.lineStyle(1, 0xFFD54F, 0.2);
-    streakPill.strokeRoundedRect(cx - 90, streakY - 20, 180, 40, 20);
-
-    this.add.text(cx, streakY, `🔥 연속 ${dailyData.streak}일`, {
-      fontSize: '20px', fontStyle: 'bold', color: '#FFD54F',
-    }).setOrigin(0.5);
-
-    // ─── 최근 7일 캘린더 ─────────────────────
-
-    const calY = 320;
-    this.add.text(cx, calY - 20, '최근 7일', {
-      fontSize: '12px', fontStyle: 'bold', color: 'rgba(255,255,255,0.3)',
-    }).setOrigin(0.5);
-
-    const calStartX = cx - 3 * 50;
+    // 캘린더 생성
+    let calendarHTML = '';
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const done = dailyData.history.includes(dStr);
       const isToday = dStr === todayStr;
-      const dx = calStartX + (6 - i) * 50;
 
-      // 날짜 원
-      const g = this.add.graphics();
-      if (done) {
-        g.fillStyle(0x43A047, 0.9);
-      } else if (isToday) {
-        g.fillStyle(0xFB8C00, 0.9);
-      } else {
-        g.fillStyle(0xffffff, 0.06);
-      }
-      g.fillCircle(dx, calY + 18, 18);
-
-      if (isToday) {
-        g.lineStyle(2, 0xFFD54F, 0.5);
-        g.strokeCircle(dx, calY + 18, 18);
-      }
-
-      this.add.text(dx, calY + 18, done ? '✓' : `${d.getDate()}`, {
-        fontSize: done ? '16px' : '14px',
-        fontStyle: isToday || done ? 'bold' : 'normal',
-        color: done || isToday ? '#ffffff' : 'rgba(255,255,255,0.5)',
-      }).setOrigin(0.5);
-
-      // 요일
-      const days = ['일', '월', '화', '수', '목', '금', '토'];
-      this.add.text(dx, calY + 46, days[d.getDay()], {
-        fontSize: '10px', color: 'rgba(255,255,255,0.3)',
-      }).setOrigin(0.5);
+      calendarHTML += `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+            background:${done ? 'linear-gradient(135deg,#66BB6A,#2E7D32)' : isToday ? 'linear-gradient(135deg,#FFA726,#EF6C00)' : 'rgba(255,255,255,0.06)'};
+            ${isToday ? 'box-shadow:0 0 12px rgba(255,167,38,0.4);' : ''}
+            font-size:${done ? '16px' : '14px'};font-weight:${isToday || done ? '800' : '400'};
+            color:${done || isToday ? 'white' : 'rgba(255,255,255,0.4)'};
+          ">${done ? '✓' : d.getDate()}</div>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3);">${days[d.getDay()]}</span>
+        </div>
+      `;
     }
 
-    // ─── 오늘의 도전 정보 (glass card) ───────
-
-    const infoY = 410;
-    const dailyLevel = this._generateDailyLevel(todayStr);
-
-    const panelG = this.add.graphics();
-    panelG.fillStyle(0xffffff, 0.06);
-    panelG.fillRoundedRect(cx - 230, infoY, 460, 230, 20);
-    panelG.lineStyle(1, 0xFB8C00, 0.2);
-    panelG.strokeRoundedRect(cx - 230, infoY, 460, 230, 20);
-
-    this.add.text(cx, infoY + 28, '오늘의 도전', {
-      fontSize: '20px', fontStyle: 'bold', color: '#FFD54F',
-    }).setOrigin(0.5);
-
-    // 이동/색상 info pills
-    const infoPillY = infoY + 62;
-    const moveInfoG = this.add.graphics();
-    moveInfoG.fillStyle(0xffffff, 0.06);
-    moveInfoG.fillRoundedRect(cx - 110, infoPillY - 14, 100, 28, 14);
-    this.add.text(cx - 60, infoPillY, `이동 ${dailyLevel.moves}회`, {
-      fontSize: '13px', fontStyle: 'bold', color: 'rgba(255,255,255,0.7)',
-    }).setOrigin(0.5);
-
-    const colorInfoG = this.add.graphics();
-    colorInfoG.fillStyle(0xffffff, 0.06);
-    colorInfoG.fillRoundedRect(cx + 10, infoPillY - 14, 100, 28, 14);
-    this.add.text(cx + 60, infoPillY, `색상 ${dailyLevel.colors}개`, {
-      fontSize: '13px', fontStyle: 'bold', color: 'rgba(255,255,255,0.7)',
-    }).setOrigin(0.5);
-
-    // 목표 표시 (with mini gem thumbnails)
+    // 목표 HTML
     const goalColors = GAME_CONFIG.COLOR_HEX;
-    const obstacleIcons = { ice: '🧊', chain: '⛓', wood: '📦' };
-    dailyLevel.goals.forEach((goal, i) => {
-      const gy = infoY + 100 + i * 32;
+    let goalsHTML = '';
+    dailyLevel.goals.forEach(goal => {
       if (goal.type === 'collect') {
         const hex = goalColors[goal.color] || 0xffffff;
-        const thumbG = this.add.graphics();
-        thumbG.fillStyle(hex, 1);
-        thumbG.fillRoundedRect(cx - 80, gy - 10, 20, 20, 6);
-        thumbG.fillStyle(0xffffff, 0.3);
-        thumbG.fillCircle(cx - 74, gy - 4, 3);
-
-        this.add.text(cx - 50, gy, `${goal.color} x ${goal.count}`, {
-          fontSize: '14px', fontStyle: 'bold', color: 'rgba(255,255,255,0.7)',
-        }).setOrigin(0, 0.5);
+        const cssColor = '#' + hex.toString(16).padStart(6, '0');
+        goalsHTML += `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:24px;height:24px;border-radius:6px;background:${cssColor};box-shadow:0 2px 6px ${cssColor}40;position:relative;">
+              <div style="position:absolute;top:2px;left:3px;width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.4);filter:blur(1px);"></div>
+            </div>
+            <span style="color:rgba(255,255,255,0.7);font-weight:700;font-size:14px;">${goal.color} x ${goal.count}</span>
+          </div>
+        `;
       } else if (goal.type === 'destroy_obstacle') {
-        this.add.text(cx - 80, gy, obstacleIcons[goal.obstacleType] || '?', {
-          fontSize: '18px',
-        }).setOrigin(0, 0.5);
-        this.add.text(cx - 50, gy, `${goal.obstacleType} x ${goal.count}`, {
-          fontSize: '14px', fontStyle: 'bold', color: 'rgba(255,255,255,0.7)',
-        }).setOrigin(0, 0.5);
+        const icons = { ice: '🧊', chain: '⛓', wood: '📦' };
+        goalsHTML += `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:20px;">${icons[goal.obstacleType] || '?'}</span>
+            <span style="color:rgba(255,255,255,0.7);font-weight:700;font-size:14px;">${goal.obstacleType} x ${goal.count}</span>
+          </div>
+        `;
       }
     });
 
-    // 보상 표시 (gold pill)
-    const rewardY = infoY + 195;
-    const rewardG = this.add.graphics();
-    rewardG.fillStyle(0xFFD54F, 0.1);
-    rewardG.fillRoundedRect(cx - 130, rewardY - 14, 260, 28, 14);
-    rewardG.lineStyle(1, 0xFFD54F, 0.15);
-    rewardG.strokeRoundedRect(cx - 130, rewardY - 14, 260, 28, 14);
-
-    this.add.text(cx, rewardY, `보상: 🪙 ${dailyLevel.reward.coins} (스트릭 보너스 적용)`, {
-      fontSize: '13px', fontStyle: 'bold', color: '#FFD54F',
-    }).setOrigin(0.5);
-
-    // ─── 도전 버튼 ─────────────────────────
-
-    const btnY = 690;
+    // 버튼
+    let actionHTML = '';
     if (alreadyDone) {
-      // 완료 표시 (glass card)
-      const doneBg = this.add.graphics();
-      doneBg.fillStyle(0x43A047, 0.1);
-      doneBg.fillRoundedRect(cx - 140, btnY - 30, 280, 60, 16);
-      doneBg.lineStyle(1, 0x43A047, 0.2);
-      doneBg.strokeRoundedRect(cx - 140, btnY - 30, 280, 60, 16);
-
-      this.add.text(cx, btnY, '✅ 오늘 도전 완료!', {
-        fontSize: '22px', fontStyle: 'bold', color: '#00E676',
-      }).setOrigin(0.5);
-
-      this.add.text(cx, btnY + 45, '내일 다시 도전하세요', {
-        fontSize: '14px', color: 'rgba(255,255,255,0.4)',
-      }).setOrigin(0.5);
+      actionHTML = `
+        <div style="background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.2);border-radius:16px;padding:20px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#00E676;margin-bottom:8px;">✅ 오늘 도전 완료!</div>
+          <div style="font-size:14px;color:rgba(255,255,255,0.4);">내일 다시 도전하세요</div>
+        </div>
+      `;
     } else {
-      new UIButton(this, cx, btnY, 280, 60, {
-        text: '도전 시작!',
-        fontSize: '22px',
-        bgColor: 0xFB8C00,
-        radius: 16,
-        shadowOffset: 5,
-        glow: true,
-        glowColor: 0xFB8C00,
-        onClick: () => {
-          audioManager.playClick();
-          fadeToScene(this, 'Game', {
+      actionHTML = `
+        <button id="m3d-btn-start" style="width:100%;padding:18px;font-size:22px;font-weight:900;color:white;background:linear-gradient(180deg,#FFA726 0%,#FB8C00 40%,#EF6C00 100%);border:none;border-radius:16px;cursor:pointer;box-shadow:0 6px 0 #BF360C,0 8px 20px rgba(239,108,0,0.4),inset 0 1px 0 rgba(255,255,255,0.2);font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;transition:transform 0.1s;">
+          <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);border-radius:16px 16px 0 0;pointer-events:none;"></div>
+          🔥 도전 시작!
+        </button>
+      `;
+    }
+
+    const container = document.createElement('div');
+    container.style.cssText = `
+      width:${W}px;height:${H}px;display:flex;flex-direction:column;align-items:center;
+      position:relative;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;
+      background:linear-gradient(180deg,#0A0E27 0%,#1A1145 30%,#2D1B69 60%,#1A1145 100%);
+      padding:20px;box-sizing:border-box;
+    `;
+
+    container.innerHTML = `
+      <style>
+        @keyframes m3d-slide-up { from { opacity:0;transform:translateY(20px); } to { opacity:1;transform:translateY(0); } }
+        @keyframes m3d-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+        .m3d-btn-3d:active { transform:translateY(4px) !important; }
+      </style>
+
+      <!-- Header -->
+      <div style="width:100%;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <button id="m3d-back" style="background:rgba(255,255,255,0.1);border:none;border-radius:12px;padding:10px 14px;cursor:pointer;color:white;font-size:18px;">←</button>
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.4);border-radius:20px;padding:6px 14px;border:1px solid rgba(255,215,0,0.15);">
+          <span style="font-size:16px;">🪙</span>
+          <span style="color:#FFD54F;font-weight:800;font-size:14px;font-family:monospace;">${coins.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <!-- Title area -->
+      <div style="text-align:center;margin-bottom:16px;animation:m3d-slide-up 0.5s ease-out;">
+        <div style="font-size:48px;animation:m3d-float 3s ease-in-out infinite;margin-bottom:8px;">🔥</div>
+        <h1 style="color:#FFD54F;font-size:32px;font-weight:900;margin:0 0 4px;">일일 도전</h1>
+        <div style="color:rgba(255,255,255,0.4);font-size:14px;">${todayStr}</div>
+      </div>
+
+      <!-- Streak -->
+      <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,152,0,0.1));border:1px solid rgba(255,215,0,0.3);border-radius:20px;padding:8px 20px;margin-bottom:24px;animation:m3d-slide-up 0.5s ease-out 0.1s both;">
+        <span style="font-size:18px;">🔥</span>
+        <span style="color:#FFD54F;font-weight:800;font-size:18px;">연속 ${dailyData.streak}일</span>
+      </div>
+
+      <!-- Calendar -->
+      <div style="margin-bottom:24px;animation:m3d-slide-up 0.5s ease-out 0.15s both;">
+        <div style="color:rgba(255,255,255,0.3);font-size:12px;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:1px;">최근 7일</div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          ${calendarHTML}
+        </div>
+      </div>
+
+      <!-- Challenge info card -->
+      <div style="width:100%;max-width:420px;background:rgba(255,255,255,0.06);border-radius:20px;padding:24px;border:1px solid rgba(255,152,0,0.15);margin-bottom:24px;animation:m3d-slide-up 0.5s ease-out 0.2s both;">
+        <h3 style="color:#FFD54F;font-size:18px;font-weight:900;margin:0 0 16px;text-align:center;">오늘의 도전</h3>
+
+        <div style="display:flex;gap:12px;justify-content:center;margin-bottom:16px;">
+          <div style="background:rgba(255,255,255,0.06);border-radius:12px;padding:8px 16px;text-align:center;">
+            <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:700;">이동</div>
+            <div style="color:white;font-size:20px;font-weight:900;font-family:monospace;">${dailyLevel.moves}</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:12px;padding:8px 16px;text-align:center;">
+            <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:700;">색상</div>
+            <div style="color:white;font-size:20px;font-weight:900;font-family:monospace;">${dailyLevel.colors}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+          ${goalsHTML}
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,215,0,0.08);border-radius:12px;padding:10px 16px;border:1px solid rgba(255,215,0,0.15);">
+          <span style="font-size:18px;">🪙</span>
+          <span style="color:#FFD54F;font-weight:800;font-size:14px;">보상: ${dailyLevel.reward.coins} (스트릭 보너스)</span>
+        </div>
+      </div>
+
+      <!-- Action -->
+      <div style="width:100%;max-width:320px;animation:m3d-slide-up 0.5s ease-out 0.3s both;">
+        ${actionHTML}
+      </div>
+    `;
+
+    this.domUI = this.add.dom(cx, cy, container);
+
+    container.style.opacity = '0';
+    container.style.transition = 'opacity 0.3s ease';
+    this.time.delayedCall(50, () => { container.style.opacity = '1'; });
+
+    // 뒤로가기
+    container.querySelector('#m3d-back').addEventListener('pointerup', () => {
+      if (this._nav) return;
+      this._nav = true;
+      container.style.opacity = '0';
+      this.time.delayedCall(300, () => this.scene.start('Menu'));
+    });
+
+    // 시작 버튼
+    const startBtn = container.querySelector('#m3d-btn-start');
+    if (startBtn) {
+      startBtn.addEventListener('pointerup', () => {
+        if (this._nav) return;
+        this._nav = true;
+        audioManager.playClick();
+        container.style.opacity = '0';
+        this.time.delayedCall(300, () => {
+          this.scene.start('Game', {
             level: -1,
             dailyLevel,
             dailyDate: todayStr,
           });
-        },
+        });
       });
     }
   }
@@ -241,11 +216,7 @@ export class DailyChallengeScene extends Phaser.Scene {
     const goalCount = 1 + Math.floor(rng() * 2);
     for (let i = 0; i < goalCount; i++) {
       const color = allColors[Math.floor(rng() * allColors.length)];
-      goals.push({
-        type: 'collect',
-        color,
-        count: 10 + Math.floor(rng() * 11),
-      });
+      goals.push({ type: 'collect', color, count: 10 + Math.floor(rng() * 11) });
     }
 
     const obstacles = [];
@@ -256,21 +227,12 @@ export class DailyChallengeScene extends Phaser.Scene {
       const usedPositions = new Set();
       for (let i = 0; i < obsCount; i++) {
         let r, c;
-        do {
-          r = Math.floor(rng() * 8);
-          c = Math.floor(rng() * 8);
-        } while (usedPositions.has(`${r},${c}`));
+        do { r = Math.floor(rng() * 8); c = Math.floor(rng() * 8); } while (usedPositions.has(`${r},${c}`));
         usedPositions.add(`${r},${c}`);
-        const layers = obsType === 'chain' ? 1 : (1 + Math.floor(rng() * 2));
-        obstacles.push({ row: r, col: c, type: obsType, layers });
+        obstacles.push({ row: r, col: c, type: obsType, layers: obsType === 'chain' ? 1 : (1 + Math.floor(rng() * 2)) });
       }
-
       if (rng() > 0.4) {
-        goals.push({
-          type: 'destroy_obstacle',
-          obstacleType: obsType,
-          count: obsCount,
-        });
+        goals.push({ type: 'destroy_obstacle', obstacleType: obsType, count: obsCount });
       }
     }
 
@@ -278,12 +240,7 @@ export class DailyChallengeScene extends Phaser.Scene {
     const streakBonus = Math.min(daily.streak, 10) * 10;
 
     return {
-      level: -1,
-      isDaily: true,
-      colors,
-      moves,
-      goals,
-      obstacles,
+      level: -1, isDaily: true, colors, moves, goals, obstacles,
       stars: { one: 1, two: 3, three: 6 },
       reward: { coins: 100 + streakBonus },
     };
@@ -291,8 +248,7 @@ export class DailyChallengeScene extends Phaser.Scene {
 
   _seededRng(seed) {
     return () => {
-      seed |= 0;
-      seed = seed + 0x6D2B79F5 | 0;
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
       let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
       t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;

@@ -2,8 +2,7 @@ import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config.js';
 import { SaveManager } from '../managers/SaveManager.js';
 import { LevelManager } from '../managers/LevelManager.js';
-import { UIButton } from '../ui/UIButton.js';
-import { fadeToScene, fadeIn } from '../utils/SceneTransitions.js';
+import { audioManager } from '../managers/AudioManager.js';
 
 export class LevelSelectScene extends Phaser.Scene {
   constructor() {
@@ -11,67 +10,50 @@ export class LevelSelectScene extends Phaser.Scene {
   }
 
   create() {
-    fadeIn(this);
-    const cx = GAME_CONFIG.WIDTH / 2;
     const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+    const cx = W / 2;
     const saveData = SaveManager.load();
     const totalLevels = LevelManager.getTotalLevels();
     const worlds = LevelManager.getWorlds();
 
     // ─── 스크롤 영역 계산 ─────────────────────
-    const nodeSpacingY = 90;
+    const nodeSpacingY = 100;
     const headerHeight = 80;
     const mapPadTop = 160;
-    const mapPadBottom = 120;
+    const mapPadBottom = 140;
     const totalHeight = mapPadTop + totalLevels * nodeSpacingY + worlds.length * headerHeight + mapPadBottom;
 
-    this.cameras.main.setBounds(0, 0, W, totalHeight);
+    // 전체 DOM 컨테이너
+    const container = document.createElement('div');
+    container.style.cssText = `
+      width:${W}px;height:${H}px;position:relative;overflow:hidden;
+      font-family:'Segoe UI',system-ui,sans-serif;
+      background:linear-gradient(180deg,#0A0E27 0%,#1A1145 30%,#2D1B69 60%,#1A1145 100%);
+    `;
 
-    // 배경 (스크롤 영역 전체)
-    const bgTiles = Math.ceil(totalHeight / GAME_CONFIG.HEIGHT) + 1;
-    for (let i = 0; i < bgTiles; i++) {
-      this.add.image(cx, i * GAME_CONFIG.HEIGHT + GAME_CONFIG.HEIGHT / 2, 'bg_gradient');
-    }
+    // 스크롤 가능한 내부 영역
+    const scrollArea = document.createElement('div');
+    scrollArea.style.cssText = `
+      width:100%;height:100%;overflow-y:auto;overflow-x:hidden;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+    `;
 
-    // ─── 고정 UI (카메라 무시) ─────────────────
-    const uiCam = this.cameras.add(0, 0, W, GAME_CONFIG.HEIGHT);
-    uiCam.setScroll(0, 0);
+    // 스크롤바 숨기기
+    const style = document.createElement('style');
+    style.textContent = `
+      .m3l-scroll::-webkit-scrollbar { display:none; }
+      @keyframes m3l-node-pop { from { transform:scale(0);opacity:0; } to { transform:scale(1);opacity:1; } }
+    `;
+    container.appendChild(style);
+    scrollArea.className = 'm3l-scroll';
 
-    // 상단 바 배경 (glass)
-    const topBar = this.add.graphics().setDepth(100).setScrollFactor(0);
-    topBar.fillStyle(0x0A0E27, 0.9);
-    topBar.fillRect(0, 0, W, 110);
-    topBar.fillStyle(0xffffff, 0.03);
-    topBar.fillRect(0, 108, W, 2);
+    // 스크롤 내용물
+    const content = document.createElement('div');
+    content.style.cssText = `width:100%;min-height:${totalHeight}px;position:relative;padding-top:120px;`;
 
-    // 뒤로가기 (glass button)
-    const backBg = this.add.graphics().setDepth(101).setScrollFactor(0);
-    backBg.fillStyle(0xffffff, 0.1);
-    backBg.fillRoundedRect(16, 20, 44, 40, 12);
-    const backBtn = this.add.text(38, 40, '←', {
-      fontSize: '18px', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(101).setScrollFactor(0)
-      .setInteractive({ useHandCursor: true });
-    backBtn.on('pointerup', () => fadeToScene(this, 'Menu'));
-
-    // 타이틀 (고정)
-    this.add.text(cx, 40, '월드맵', {
-      fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
-
-    // 코인 pill (고정)
-    const coinPill = this.add.graphics().setDepth(101).setScrollFactor(0);
-    coinPill.fillStyle(0x000000, 0.4);
-    coinPill.fillRoundedRect(W - 130, 22, 116, 36, 20);
-    coinPill.lineStyle(1, 0xFFD54F, 0.15);
-    coinPill.strokeRoundedRect(W - 130, 22, 116, 36, 20);
-    this.add.text(W - 112, 40, '🪙', { fontSize: '16px' })
-      .setOrigin(0.5).setDepth(101).setScrollFactor(0);
-    this.add.text(W - 72, 40, `${saveData.coins}`, {
-      fontSize: '14px', fontStyle: 'bold', color: '#FFD54F', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
-
-    // ─── 경로 포인트 계산 (지그재그) ──────────
+    // ─── 경로 및 노드 렌더링 ──────────────────
     const marginX = 120;
     const maxX = W - marginX;
     const points = [];
@@ -82,157 +64,140 @@ export class LevelSelectScene extends Phaser.Scene {
       const levelEnd = world.levels[1];
       const count = levelEnd - levelStart + 1;
 
-      // 월드 헤더
       const headerY = curY;
       curY -= headerHeight;
 
-      // 월드 헤더 glass pill
-      const hdrG = this.add.graphics();
-      hdrG.fillStyle(0xffffff, 0.06);
-      hdrG.fillRoundedRect(cx - 90, headerY - 18, 180, 36, 18);
-      hdrG.lineStyle(1, 0xffffff, 0.08);
-      hdrG.strokeRoundedRect(cx - 90, headerY - 18, 180, 36, 18);
+      // 월드 헤더
+      const hdr = document.createElement('div');
+      hdr.style.cssText = `position:absolute;left:50%;transform:translateX(-50%);top:${headerY - 18}px;
+        display:flex;align-items:center;gap:8px;
+        background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,152,0,0.08));
+        border:1px solid rgba(255,215,0,0.2);border-radius:20px;padding:6px 20px;`;
+      hdr.innerHTML = `<span style="font-size:20px;">${world.icon}</span><span style="color:#FFD54F;font-weight:800;font-size:16px;">${world.name}</span>`;
+      content.appendChild(hdr);
 
-      this.add.text(cx, headerY, `${world.icon} ${world.name}`, {
-        fontSize: '18px', fontStyle: 'bold', color: '#FFD54F',
-      }).setOrigin(0.5);
-
-      // 지그재그 경로로 레벨 배치
       for (let i = 0; i < count; i++) {
         const posInRow = i % 5;
         const rowIdx = Math.floor(i / 5);
         const goingRight = rowIdx % 2 === 0;
-
         const t = posInRow / 4;
-        const x = goingRight
-          ? marginX + t * (maxX - marginX)
-          : maxX - t * (maxX - marginX);
-
+        const x = goingRight ? marginX + t * (maxX - marginX) : maxX - t * (maxX - marginX);
         curY -= nodeSpacingY;
         points.push({ x, y: curY, level: levelStart + i, worldIdx: wi });
       }
-
       curY -= 20;
     });
 
-    // ─── 경로 라인 (점선) ────────────────────
-    const pathGfx = this.add.graphics();
+    // 점선 경로 (SVG)
+    let pathSVG = `<svg style="position:absolute;top:0;left:0;width:${W}px;height:${totalHeight}px;pointer-events:none;">`;
     for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const cur = points[i];
-      if (prev.worldIdx === cur.worldIdx) {
-        this.drawDottedLine(pathGfx, prev.x, prev.y, cur.x, cur.y, 0xA78BFA, 0.3);
+      if (points[i - 1].worldIdx === points[i].worldIdx) {
+        pathSVG += `<line x1="${points[i - 1].x}" y1="${points[i - 1].y}" x2="${points[i].x}" y2="${points[i].y}" stroke="rgba(167,139,250,0.25)" stroke-width="2" stroke-dasharray="6,6"/>`;
       }
     }
+    pathSVG += '</svg>';
+    content.insertAdjacentHTML('beforeend', pathSVG);
 
-    // ─── 레벨 노드 ──────────────────────────
-    const nodeSize = 72;
-    let currentLevelY = 0;
-
+    // 레벨 노드
+    let currentNodeTop = 0;
     points.forEach(({ x, y, level }, i) => {
       const isUnlocked = level <= saveData.unlockedLevel;
       const isCurrent = level === saveData.unlockedLevel;
       const stars = saveData.levelStars[level] || 0;
 
-      if (isCurrent) currentLevelY = y;
+      if (isCurrent) currentNodeTop = y;
+
+      const nodeSize = 64;
+      const node = document.createElement('div');
+      node.style.cssText = `position:absolute;left:${x - nodeSize / 2}px;top:${y - nodeSize / 2}px;
+        width:${nodeSize}px;height:${nodeSize}px;border-radius:50%;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        cursor:${isUnlocked ? 'pointer' : 'default'};
+        animation:m3l-node-pop 0.3s ease-out ${i * 0.02}s both;
+        transition:transform 0.1s;`;
 
       if (isUnlocked) {
-        let bgColor = 0x2979FF;
-        if (isCurrent) bgColor = 0xFB8C00;
-        else if (stars >= 3) bgColor = 0xFFD54F;
-
-        const btn = new UIButton(this, x, y, nodeSize, nodeSize, {
-          text: `${level}`,
-          fontSize: '24px',
-          bgColor,
-          radius: nodeSize / 2,
-          shadowOffset: 3,
-          glow: isCurrent,
-          glowColor: 0xFB8C00,
-          onClick: () => fadeToScene(this, 'Game', { level }),
-        });
-
-        // 순차 등장
-        [btn.bg, btn.label, btn.shadow].forEach(el => el.setAlpha(0));
-        this.tweens.add({
-          targets: [btn.bg, btn.label, btn.shadow, btn.hitArea],
-          alpha: 1, duration: 200, delay: i * 20,
-        });
-
-        // 별
-        if (stars > 0) {
-          const starStr = '⭐'.repeat(stars);
-          const starText = this.add.text(x, y + nodeSize / 2 + 10, starStr, {
-            fontSize: '12px',
-          }).setOrigin(0.5).setAlpha(0);
-          this.tweens.add({
-            targets: starText, alpha: 1, duration: 200, delay: i * 20 + 80,
-          });
+        let bg, shadow, border;
+        if (isCurrent) {
+          bg = 'linear-gradient(135deg,#FFA726,#EF6C00)';
+          shadow = '0 4px 0 #BF360C,0 6px 16px rgba(239,108,0,0.4)';
+          border = '2px solid rgba(255,215,0,0.5)';
+        } else if (stars >= 3) {
+          bg = 'linear-gradient(135deg,#FFD54F,#FF8F00)';
+          shadow = '0 4px 0 #E65100,0 6px 12px rgba(255,143,0,0.3)';
+          border = '2px solid rgba(255,215,0,0.3)';
+        } else {
+          bg = 'linear-gradient(135deg,#42A5F5,#1565C0)';
+          shadow = '0 4px 0 #0D47A1,0 6px 12px rgba(21,101,192,0.3)';
+          border = '2px solid rgba(66,165,245,0.3)';
         }
+        node.style.background = bg;
+        node.style.boxShadow = shadow;
+        node.style.border = border;
+        node.innerHTML = `
+          <span style="font-size:22px;font-weight:900;color:white;text-shadow:0 1px 3px rgba(0,0,0,0.3);">${level}</span>
+          ${stars > 0 ? `<div style="position:absolute;bottom:-16px;display:flex;gap:1px;">${'⭐'.repeat(stars)}</div>` : ''}
+        `;
+        node.dataset.level = level;
+        node.className = 'm3l-level-node';
       } else {
-        // 잠긴 레벨
-        const g = this.add.graphics();
-        g.fillStyle(0xffffff, 0.04);
-        g.fillCircle(x, y, nodeSize / 2);
-        g.lineStyle(1, 0xffffff, 0.08);
-        g.strokeCircle(x, y, nodeSize / 2);
-        const lock = this.add.text(x, y, '🔒', { fontSize: '20px' }).setOrigin(0.5);
-
-        [g, lock].forEach(el => el.setAlpha(0));
-        this.tweens.add({
-          targets: [g, lock], alpha: 0.5, duration: 200, delay: i * 20,
-        });
+        node.style.background = 'rgba(255,255,255,0.05)';
+        node.style.border = '1px solid rgba(255,255,255,0.08)';
+        node.innerHTML = `<span style="font-size:18px;opacity:0.4;">🔒</span>`;
       }
+      content.appendChild(node);
     });
 
-    // ─── 현재 레벨로 스크롤 ─────────────────
-    const targetScroll = Math.max(0, currentLevelY - GAME_CONFIG.HEIGHT / 2);
-    this.cameras.main.setScroll(0, targetScroll);
+    scrollArea.appendChild(content);
+    container.appendChild(scrollArea);
 
-    // ─── 드래그 스크롤 ─────────────────────
-    this._dragStartY = 0;
-    this._scrollStartY = 0;
-    this._isDragging = false;
+    // 고정 헤더
+    const header = document.createElement('div');
+    header.style.cssText = `position:absolute;top:0;left:0;right:0;z-index:10;
+      background:linear-gradient(180deg,#0A0E27 0%,#0A0E27 60%,transparent 100%);
+      padding:20px 16px 30px;display:flex;align-items:center;justify-content:space-between;`;
+    header.innerHTML = `
+      <button id="m3l-back" style="background:rgba(255,255,255,0.1);border:none;border-radius:12px;padding:10px 14px;cursor:pointer;color:white;font-size:18px;">←</button>
+      <span style="color:white;font-size:24px;font-weight:900;">월드맵</span>
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.4);border-radius:20px;padding:6px 14px;border:1px solid rgba(255,215,0,0.15);">
+        <span style="font-size:16px;">🪙</span>
+        <span style="color:#FFD54F;font-weight:800;font-size:14px;font-family:monospace;">${saveData.coins.toLocaleString()}</span>
+      </div>
+    `;
+    container.appendChild(header);
 
-    this.input.on('pointerdown', (pointer) => {
-      this._dragStartY = pointer.y;
-      this._scrollStartY = this.cameras.main.scrollY;
-      this._isDragging = true;
+    // DOM에 추가
+    this.domUI = this.add.dom(cx, H / 2, container);
+
+    // 페이드 인
+    container.style.opacity = '0';
+    container.style.transition = 'opacity 0.3s ease';
+    this.time.delayedCall(50, () => { container.style.opacity = '1'; });
+
+    // 현재 레벨로 스크롤
+    this.time.delayedCall(100, () => {
+      const scrollTarget = Math.max(0, currentNodeTop - H / 2);
+      scrollArea.scrollTop = totalHeight - scrollTarget - H;
     });
 
-    this.input.on('pointermove', (pointer) => {
-      if (!this._isDragging || !pointer.isDown) return;
-      const dy = this._dragStartY - pointer.y;
-      const newScroll = Phaser.Math.Clamp(
-        this._scrollStartY + dy,
-        0,
-        totalHeight - GAME_CONFIG.HEIGHT
-      );
-      this.cameras.main.setScroll(0, newScroll);
+    // 뒤로가기
+    container.querySelector('#m3l-back').addEventListener('pointerup', () => {
+      if (this._nav) return;
+      this._nav = true;
+      container.style.opacity = '0';
+      this.time.delayedCall(300, () => this.scene.start('Menu'));
     });
 
-    this.input.on('pointerup', () => {
-      this._isDragging = false;
+    // 레벨 노드 클릭
+    content.addEventListener('pointerup', (e) => {
+      const node = e.target.closest('.m3l-level-node');
+      if (!node || this._nav) return;
+      const level = parseInt(node.dataset.level);
+      if (!level || level > saveData.unlockedLevel) return;
+      this._nav = true;
+      audioManager.playClick();
+      container.style.opacity = '0';
+      this.time.delayedCall(300, () => this.scene.start('Game', { level }));
     });
-
-    // UI 카메라에서 스크롤 제외
-    uiCam.ignore(this.children.list.filter(c => c.scrollFactorX !== 0));
-    this.cameras.main.ignore([backBtn,
-      ...this.children.list.filter(c => c.scrollFactorX === 0 && c !== backBtn)
-    ].filter(Boolean));
-  }
-
-  drawDottedLine(graphics, x1, y1, x2, y2, color, alpha) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const dotGap = 10;
-    const steps = Math.floor(dist / dotGap);
-
-    graphics.fillStyle(color, alpha);
-    for (let i = 0; i < steps; i += 2) {
-      const t = i / steps;
-      graphics.fillCircle(x1 + dx * t, y1 + dy * t, 2);
-    }
   }
 }

@@ -8,7 +8,6 @@ import { SaveManager } from '../managers/SaveManager.js';
 import { BoosterManager, BOOSTERS } from '../managers/BoosterManager.js';
 import { audioManager } from '../managers/AudioManager.js';
 import { HintManager } from '../managers/HintManager.js';
-import { UIButton } from '../ui/UIButton.js';
 import { fadeToScene, fadeIn } from '../utils/SceneTransitions.js';
 
 export class GameScene extends Phaser.Scene {
@@ -593,7 +592,7 @@ export class GameScene extends Phaser.Scene {
     this.coinText.setText(`${SaveManager.getCoins()}`);
   }
 
-  // ─── 일시정지 / 나가기 (JSX glass modal) ──────
+  // ─── 일시정지 / 나가기 (DOM overlay) ──────
 
   showPauseMenu() {
     if (this._paused) return;
@@ -603,53 +602,59 @@ export class GameScene extends Phaser.Scene {
     const { WIDTH, HEIGHT } = GAME_CONFIG;
     const cx = WIDTH / 2;
     const cy = HEIGHT / 2;
-    const elements = [];
 
-    const overlay = this.add.rectangle(cx, cy, WIDTH, HEIGHT, 0x000000, 0.75)
-      .setDepth(50).setInteractive();
-    elements.push(overlay);
+    const container = document.createElement('div');
+    container.style.cssText = `
+      width:${WIDTH}px;height:${HEIGHT}px;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);
+      font-family:'Segoe UI',system-ui,sans-serif;
+    `;
 
-    // Glass panel
-    const panel = this.add.graphics().setDepth(51);
-    panel.fillStyle(0x1E1452, 0.98);
-    panel.fillRoundedRect(cx - 170, cy - 175, 340, 350, 28);
-    panel.lineStyle(1, 0xFFD54F, 0.2);
-    panel.strokeRoundedRect(cx - 170, cy - 175, 340, 350, 28);
-    elements.push(panel);
+    container.innerHTML = `
+      <style>.m3p-btn:active{transform:translateY(4px)!important;}</style>
+      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:36px 32px;text-align:center;max-width:300px;width:90%;border:1px solid rgba(255,215,0,0.2);box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+        <h2 style="color:#FFD54F;font-size:28px;font-weight:900;margin:0 0 30px;">⏸ 일시정지</h2>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <button id="m3p-resume" class="m3p-btn" style="width:100%;padding:16px;font-size:20px;font-weight:900;color:white;border:none;border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;transition:transform 0.1s;background:linear-gradient(180deg,#66BB6A 0%,#43A047 40%,#2E7D32 100%);box-shadow:0 5px 0 #1B5E20,0 7px 16px rgba(46,125,50,0.4);">
+            <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;"></div>
+            계속하기
+          </button>
+          <button id="m3p-restart" class="m3p-btn" style="width:100%;padding:16px;font-size:18px;font-weight:900;color:white;border:none;border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;transition:transform 0.1s;background:linear-gradient(180deg,#42A5F5 0%,#1E88E5 40%,#1565C0 100%);box-shadow:0 5px 0 #0D47A1,0 7px 16px rgba(21,101,192,0.4);">
+            <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;"></div>
+            재시작
+          </button>
+          <button id="m3p-exit" class="m3p-btn" style="width:100%;padding:14px;font-size:16px;font-weight:700;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);border-radius:14px;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;transition:transform 0.1s;">
+            ${this.isDaily ? '일일 도전' : '레벨 선택'}
+          </button>
+        </div>
+      </div>
+    `;
 
-    const titleTxt = this.add.text(cx, cy - 130, '⏸ 일시정지', {
-      fontSize: '28px', fontStyle: 'bold', color: '#FFD54F',
-    }).setOrigin(0.5).setDepth(52);
-    elements.push(titleTxt);
+    const domEl = this.add.dom(cx, cy, container).setDepth(100);
+    container.style.opacity = '0';
+    container.style.transition = 'opacity 0.2s ease';
+    this.time.delayedCall(16, () => { container.style.opacity = '1'; });
 
-    const cleanup = () => { elements.forEach(el => el.destroy()); };
+    const cleanup = (cb) => {
+      container.style.opacity = '0';
+      this.time.delayedCall(250, () => { domEl.destroy(); if (cb) cb(); });
+    };
 
-    const btnData = [
-      { y: -40, text: '계속하기', color: 0x43A047, action: 'resume' },
-      { y: 35, text: '재시작', color: 0x2979FF, action: 'restart' },
-      { y: 110, text: this.isDaily ? '일일 도전' : '레벨 선택', color: 0x424242, action: 'exit' },
-    ];
-
-    btnData.forEach(({ y, text, color, action }) => {
-      const btn = new UIButton(this, cx, cy + y, 240, 55, {
-        text, bgColor: color, fontSize: '20px', depth: 52, radius: 14, shadowOffset: 4,
-        onClick: () => {
-          cleanup();
-          if (action === 'resume') {
-            this._paused = false;
-            this.engine.isProcessing = false;
-          } else if (action === 'restart') {
-            if (this.isDaily) {
-              fadeToScene(this, 'Game', { level: -1, dailyLevel: this.dailyLevel, dailyDate: this.dailyDate });
-            } else {
-              fadeToScene(this, 'Game', { level: this.level });
-            }
-          } else if (action === 'exit') {
-            fadeToScene(this, this.isDaily ? 'DailyChallenge' : 'LevelSelect');
-          }
-        },
+    container.querySelector('#m3p-resume').addEventListener('pointerup', () => {
+      audioManager.playClick();
+      cleanup(() => { this._paused = false; this.engine.isProcessing = false; });
+    });
+    container.querySelector('#m3p-restart').addEventListener('pointerup', () => {
+      audioManager.playClick();
+      cleanup(() => {
+        if (this.isDaily) this.scene.start('Game', { level: -1, dailyLevel: this.dailyLevel, dailyDate: this.dailyDate });
+        else this.scene.start('Game', { level: this.level });
       });
-      elements.push(btn.shadow, btn.bg, btn.hitArea, btn.label);
+    });
+    container.querySelector('#m3p-exit').addEventListener('pointerup', () => {
+      audioManager.playClick();
+      cleanup(() => this.scene.start(this.isDaily ? 'DailyChallenge' : 'LevelSelect'));
     });
   }
 
@@ -661,111 +666,119 @@ export class GameScene extends Phaser.Scene {
     const { WIDTH, HEIGHT } = GAME_CONFIG;
     const cx = WIDTH / 2;
     const cy = HEIGHT / 2;
-    const elements = [];
 
-    const overlay = this.add.rectangle(cx, cy, WIDTH, HEIGHT, 0x000000, 0.75)
-      .setDepth(50).setInteractive();
-    elements.push(overlay);
+    const container = document.createElement('div');
+    container.style.cssText = `
+      width:${WIDTH}px;height:${HEIGHT}px;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);
+      font-family:'Segoe UI',system-ui,sans-serif;
+    `;
 
-    const panel = this.add.graphics().setDepth(51);
-    panel.fillStyle(0x1E1452, 0.98);
-    panel.fillRoundedRect(cx - 170, cy - 100, 340, 200, 28);
-    panel.lineStyle(1, 0xFF5252, 0.3);
-    panel.strokeRoundedRect(cx - 170, cy - 100, 340, 200, 28);
-    elements.push(panel);
+    container.innerHTML = `
+      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:32px 28px;text-align:center;max-width:320px;width:90%;border:1px solid rgba(255,82,82,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+        <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+        <h3 style="color:white;font-size:22px;font-weight:900;margin:0 0 8px;">나가시겠습니까?</h3>
+        <p style="color:rgba(255,255,255,0.5);font-size:14px;margin:0 0 24px;">진행 상황이 저장되지 않습니다</p>
+        <div style="display:flex;gap:10px;">
+          <button id="m3e-exit" style="flex:1;padding:14px;font-size:16px;font-weight:800;color:white;background:linear-gradient(180deg,#EF5350,#C62828);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #B71C1C,0 6px 12px rgba(198,40,40,0.3);font-family:'Segoe UI',system-ui,sans-serif;">나가기</button>
+          <button id="m3e-stay" style="flex:1;padding:14px;font-size:16px;font-weight:800;color:white;background:linear-gradient(180deg,#66BB6A,#2E7D32);border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #1B5E20,0 6px 12px rgba(46,125,50,0.3);font-family:'Segoe UI',system-ui,sans-serif;">계속하기</button>
+        </div>
+      </div>
+    `;
 
-    const title = this.add.text(cx, cy - 60, '나가시겠습니까?', {
-      fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(52);
-    const subtitle = this.add.text(cx, cy - 30, '진행 상황이 저장되지 않습니다', {
-      fontSize: '14px', color: 'rgba(255,255,255,0.5)',
-    }).setOrigin(0.5).setDepth(52);
-    elements.push(title, subtitle);
+    const domEl = this.add.dom(cx, cy, container).setDepth(100);
+    container.style.opacity = '0';
+    container.style.transition = 'opacity 0.2s ease';
+    this.time.delayedCall(16, () => { container.style.opacity = '1'; });
 
-    const cleanup = () => { elements.forEach(el => el.destroy()); };
+    const cleanup = (cb) => {
+      container.style.opacity = '0';
+      this.time.delayedCall(250, () => { domEl.destroy(); if (cb) cb(); });
+    };
 
-    const exitBtn = new UIButton(this, cx - 75, cy + 40, 130, 50, {
-      text: '나가기', bgColor: 0xF44336, fontSize: '18px', depth: 52, radius: 14,
-      onClick: () => fadeToScene(this, this.isDaily ? 'DailyChallenge' : 'LevelSelect'),
+    container.querySelector('#m3e-exit').addEventListener('pointerup', () => {
+      audioManager.playClick();
+      cleanup(() => this.scene.start(this.isDaily ? 'DailyChallenge' : 'LevelSelect'));
     });
-    elements.push(exitBtn.shadow, exitBtn.bg, exitBtn.hitArea, exitBtn.label);
-
-    const stayBtn = new UIButton(this, cx + 75, cy + 40, 130, 50, {
-      text: '계속하기', bgColor: 0x43A047, fontSize: '18px', depth: 52, radius: 14,
-      onClick: () => {
-        cleanup();
-        this._paused = false;
-        this.engine.isProcessing = false;
-      },
+    container.querySelector('#m3e-stay').addEventListener('pointerup', () => {
+      audioManager.playClick();
+      cleanup(() => { this._paused = false; this.engine.isProcessing = false; });
     });
-    elements.push(stayBtn.shadow, stayBtn.bg, stayBtn.hitArea, stayBtn.label);
   }
 
-  // ─── 목표 팝업 (레벨 시작) ──────────────────
+  // ─── 목표 팝업 (레벨 시작, DOM overlay) ──────
 
   showGoalPopup() {
     this.engine.isProcessing = true;
     const { WIDTH, HEIGHT } = GAME_CONFIG;
     const cx = WIDTH / 2;
     const cy = HEIGHT / 2;
+    const goalColors = GAME_CONFIG.COLOR_HEX;
+    const obstacleIcons = { ice: '🧊', chain: '⛓', wood: '📦' };
 
-    const overlay = this.add.rectangle(cx, cy, WIDTH, HEIGHT, 0x000000, 0.7)
-      .setDepth(50).setInteractive();
-
-    const panelH = 180 + this.goalManager.goals.length * 40;
-    const panel = this.add.graphics().setDepth(51);
-    panel.fillStyle(0x1E1452, 0.98);
-    panel.fillRoundedRect(cx - 170, cy - panelH / 2, 340, panelH, 28);
-    panel.lineStyle(1, 0xFFD54F, 0.3);
-    panel.strokeRoundedRect(cx - 170, cy - panelH / 2, 340, panelH, 28);
-
-    const title = this.add.text(cx, cy - panelH / 2 + 35,
-      this.isDaily ? '일일 도전 🔥' : `LEVEL ${this.level}`, {
-      fontSize: '28px', fontStyle: 'bold', color: '#FFD54F',
-    }).setOrigin(0.5).setDepth(52);
-
-    const movesLabel = this.add.text(cx, cy - panelH / 2 + 70, `이동 ${this.goalManager.moves}회`, {
-      fontSize: '16px', color: 'rgba(255,255,255,0.6)',
-    }).setOrigin(0.5).setDepth(52);
-
-    const elements = [overlay, panel, title, movesLabel];
-
-    this.goalManager.goals.forEach((goal, i) => {
-      const y = cy - panelH / 2 + 110 + i * 40;
-      let hex, labelText;
+    let goalsHTML = '';
+    this.goalManager.goals.forEach(goal => {
       if (goal.type === 'collect') {
-        hex = GAME_CONFIG.COLOR_HEX[goal.color] || 0xffffff;
-        labelText = `${goal.color} x ${goal.count}`;
-        // Mini gem
-        const dot = this.add.graphics().setDepth(52);
-        dot.fillStyle(hex, 1);
-        dot.fillRoundedRect(cx - 70, y - 12, 24, 24, 6);
-        dot.fillStyle(0xffffff, 0.3);
-        dot.fillCircle(cx - 62, y - 6, 4);
-        elements.push(dot);
+        const hex = goalColors[goal.color] || 0xffffff;
+        const cssColor = '#' + hex.toString(16).padStart(6, '0');
+        goalsHTML += `
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+            <div style="width:28px;height:28px;border-radius:8px;background:${cssColor};box-shadow:0 2px 6px ${cssColor}40;position:relative;">
+              <div style="position:absolute;top:3px;left:4px;width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.4);filter:blur(1px);"></div>
+            </div>
+            <span style="color:white;font-weight:700;font-size:16px;">${goal.color} x ${goal.count}</span>
+          </div>
+        `;
       } else if (goal.type === 'destroy_obstacle') {
-        const icons = { ice: '🧊', chain: '⛓', wood: '📦' };
-        hex = 0xaaaaaa;
-        labelText = `${icons[goal.obstacleType] || '?'} ${goal.obstacleType} x ${goal.count}`;
+        goalsHTML += `
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+            <span style="font-size:24px;">${obstacleIcons[goal.obstacleType] || '?'}</span>
+            <span style="color:white;font-weight:700;font-size:16px;">${goal.obstacleType} x ${goal.count}</span>
+          </div>
+        `;
       }
-      const label = this.add.text(cx - 35, y, labelText, {
-        fontSize: '18px', fontStyle: 'bold', color: '#ffffff',
-      }).setOrigin(0, 0.5).setDepth(52);
-      elements.push(label);
     });
 
-    const startBtn = new UIButton(this, cx, cy + panelH / 2 - 40, 200, 50, {
-      text: '시작!', bgColor: 0x43A047, fontSize: '22px', depth: 52, radius: 14,
-      onClick: () => {
-        elements.forEach(el => el.destroy());
-        startBtn.destroy();
+    const container = document.createElement('div');
+    container.style.cssText = `
+      width:${WIDTH}px;height:${HEIGHT}px;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+      font-family:'Segoe UI',system-ui,sans-serif;
+    `;
+
+    container.innerHTML = `
+      <style>@keyframes m3g-slide-up{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}</style>
+      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:32px;text-align:center;max-width:320px;width:90%;border:1px solid rgba(255,215,0,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:m3g-slide-up 0.4s ease-out;">
+        <h2 style="color:#FFD54F;font-size:28px;font-weight:900;margin:0 0 8px;">${this.isDaily ? '일일 도전 🔥' : `LEVEL ${this.level}`}</h2>
+        <p style="color:rgba(255,255,255,0.6);font-size:16px;margin:0 0 20px;">이동 ${this.goalManager.moves}회</p>
+        <div style="display:flex;flex-direction:column;padding:0 20px;margin-bottom:24px;">
+          ${goalsHTML}
+        </div>
+        <button id="m3g-start" style="width:100%;padding:16px;font-size:22px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A 0%,#43A047 40%,#2E7D32 100%);border:none;border-radius:14px;cursor:pointer;box-shadow:0 5px 0 #1B5E20,0 7px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;"></div>
+          시작!
+        </button>
+      </div>
+    `;
+
+    const domEl = this.add.dom(cx, cy, container).setDepth(100);
+    container.style.opacity = '0';
+    container.style.transition = 'opacity 0.2s ease';
+    this.time.delayedCall(16, () => { container.style.opacity = '1'; });
+
+    container.querySelector('#m3g-start').addEventListener('pointerup', () => {
+      audioManager.playClick();
+      container.style.opacity = '0';
+      this.time.delayedCall(250, () => {
+        domEl.destroy();
         this.engine.isProcessing = false;
-      },
+      });
     });
-    elements.push(startBtn.shadow, startBtn.bg, startBtn.hitArea, startBtn.label);
   }
 
-  // ─── 튜토리얼 ────────────────────────────────
+  // ─── 튜토리얼 (DOM overlay) ─────────────────
 
   showTutorial() {
     this.engine.isProcessing = true;
@@ -781,42 +794,52 @@ export class GameScene extends Phaser.Scene {
 
     let stepIndex = 0;
 
-    const overlay = this.add.rectangle(cx, cy, WIDTH, HEIGHT, 0x000000, 0.75)
-      .setDepth(60).setInteractive();
-    const panel = this.add.graphics().setDepth(61);
-    panel.fillStyle(0x1E1452, 0.98);
-    panel.fillRoundedRect(cx - 170, cy - 120, 340, 240, 28);
-    panel.lineStyle(1, 0x43A047, 0.3);
-    panel.strokeRoundedRect(cx - 170, cy - 120, 340, 240, 28);
+    const container = document.createElement('div');
+    container.style.cssText = `
+      width:${WIDTH}px;height:${HEIGHT}px;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);
+      font-family:'Segoe UI',system-ui,sans-serif;
+    `;
 
-    const iconText = this.add.text(cx, cy - 60, steps[0].icon, {
-      fontSize: '48px',
-    }).setOrigin(0.5).setDepth(62);
-    const bodyText = this.add.text(cx, cy + 10, steps[0].text, {
-      fontSize: '18px', color: '#ffffff', align: 'center',
-    }).setOrigin(0.5).setDepth(62);
+    container.innerHTML = `
+      <div style="background:linear-gradient(180deg,#1E1452 0%,#2D1B69 100%);border-radius:28px;padding:36px 32px;text-align:center;max-width:320px;width:90%;border:1px solid rgba(76,175,80,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+        <div id="m3t-icon" style="font-size:48px;margin-bottom:12px;">${steps[0].icon}</div>
+        <p id="m3t-text" style="color:white;font-size:18px;line-height:1.6;margin:0 0 24px;white-space:pre-line;">${steps[0].text}</p>
+        <button id="m3t-next" style="width:180px;padding:14px;font-size:20px;font-weight:900;color:white;background:linear-gradient(180deg,#66BB6A 0%,#43A047 40%,#2E7D32 100%);border:none;border-radius:14px;cursor:pointer;box-shadow:0 5px 0 #1B5E20,0 7px 16px rgba(46,125,50,0.4);font-family:'Segoe UI',system-ui,sans-serif;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;"></div>
+          다음
+        </button>
+      </div>
+    `;
 
-    const nextBtnUI = new UIButton(this, cx, cy + 80, 160, 45, {
-      text: '다음', bgColor: 0x43A047, fontSize: '20px', depth: 62, radius: 14,
-      onClick: () => { onNext(); },
-    });
+    const domEl = this.add.dom(cx, cy, container).setDepth(100);
+    container.style.opacity = '0';
+    container.style.transition = 'opacity 0.2s ease';
+    this.time.delayedCall(16, () => { container.style.opacity = '1'; });
 
-    const elements = [overlay, panel, iconText, bodyText, nextBtnUI.shadow, nextBtnUI.bg, nextBtnUI.hitArea, nextBtnUI.label];
+    const iconEl = container.querySelector('#m3t-icon');
+    const textEl = container.querySelector('#m3t-text');
+    const nextBtn = container.querySelector('#m3t-next');
 
-    const onNext = () => {
+    nextBtn.addEventListener('pointerup', () => {
+      audioManager.playClick();
       stepIndex++;
       if (stepIndex >= steps.length) {
-        elements.forEach(el => el.destroy());
-        SaveManager.setTutorialDone();
-        this.showGoalPopup();
+        container.style.opacity = '0';
+        this.time.delayedCall(250, () => {
+          domEl.destroy();
+          SaveManager.setTutorialDone();
+          this.showGoalPopup();
+        });
       } else {
-        iconText.setText(steps[stepIndex].icon);
-        bodyText.setText(steps[stepIndex].text);
+        iconEl.textContent = steps[stepIndex].icon;
+        textEl.textContent = steps[stepIndex].text;
         if (stepIndex === steps.length - 1) {
-          nextBtnUI.setText('시작!');
+          nextBtn.childNodes[1].textContent = '시작!';
         }
       }
-    };
+    });
   }
 
   // ─── 메시지 표시 ──────────────────────────────
