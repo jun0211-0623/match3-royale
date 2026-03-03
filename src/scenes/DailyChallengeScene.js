@@ -9,6 +9,7 @@ export class DailyChallengeScene extends Phaser.Scene {
   }
 
   create() {
+    this._nav = false;
     const W = GAME_CONFIG.WIDTH;
     const H = GAME_CONFIG.HEIGHT;
     const cx = W / 2;

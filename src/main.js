@@ -58,7 +58,12 @@ const _origSetElement = Phaser.GameObjects.DOMElement.prototype.setElement;
 Phaser.GameObjects.DOMElement.prototype.setElement = function(element, style, innerText) {
   const savedDisplay = element.style.display;
   const result = _origSetElement.call(this, element, style, innerText);
-  if (savedDisplay) element.style.display = savedDisplay;
+  if (savedDisplay) {
+    element.style.display = savedDisplay;
+    this.updateSize();
+  }
+  // transformOnly = true prevents CSSRenderer from overriding display/opacity every frame
+  this.transformOnly = true;
   return result;
 };
 
