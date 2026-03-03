@@ -20,7 +20,7 @@ const config = {
     height: GAME_CONFIG.HEIGHT,
   },
 
-  backgroundColor: '#1a1a2e',
+  backgroundColor: '#0A0E27',
 
   // 입력 설정
   input: {
@@ -47,7 +47,7 @@ const config = {
 };
 
 // ─── 글로벌 게임 폰트 적용 ─────────────────────
-const GAME_FONT = '"Jua", sans-serif';
+const GAME_FONT = "'Segoe UI', system-ui, sans-serif";
 const _origTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
 Phaser.GameObjects.GameObjectFactory.prototype.text = function (x, y, text, style) {
   const s = style || {};

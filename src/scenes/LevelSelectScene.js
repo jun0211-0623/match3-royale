@@ -25,7 +25,6 @@ export class LevelSelectScene extends Phaser.Scene {
     const mapPadBottom = 120;
     const totalHeight = mapPadTop + totalLevels * nodeSpacingY + worlds.length * headerHeight + mapPadBottom;
 
-    // 카메라 바운드
     this.cameras.main.setBounds(0, 0, W, totalHeight);
 
     // 배경 (스크롤 영역 전체)
@@ -38,22 +37,39 @@ export class LevelSelectScene extends Phaser.Scene {
     const uiCam = this.cameras.add(0, 0, W, GAME_CONFIG.HEIGHT);
     uiCam.setScroll(0, 0);
 
-    // 뒤로가기 (고정 UI → depth 높게)
-    const backBtn = this.add.text(30, 30, '< 뒤로', {
-      fontSize: '24px', color: '#ffffff',
-    }).setInteractive({ useHandCursor: true }).setDepth(100).setScrollFactor(0);
+    // 상단 바 배경 (glass)
+    const topBar = this.add.graphics().setDepth(100).setScrollFactor(0);
+    topBar.fillStyle(0x0A0E27, 0.9);
+    topBar.fillRect(0, 0, W, 110);
+    topBar.fillStyle(0xffffff, 0.03);
+    topBar.fillRect(0, 108, W, 2);
+
+    // 뒤로가기 (glass button)
+    const backBg = this.add.graphics().setDepth(101).setScrollFactor(0);
+    backBg.fillStyle(0xffffff, 0.1);
+    backBg.fillRoundedRect(16, 20, 44, 40, 12);
+    const backBtn = this.add.text(38, 40, '←', {
+      fontSize: '18px', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(101).setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
     backBtn.on('pointerup', () => fadeToScene(this, 'Menu'));
 
-    // 코인 (고정)
-    this.add.text(W - 30, 30, `💰 ${saveData.coins}`, {
-      fontSize: '22px', color: '#f1c40f',
-    }).setOrigin(1, 0).setDepth(100).setScrollFactor(0);
-
     // 타이틀 (고정)
-    this.add.text(cx, 80, '월드맵', {
-      fontSize: '36px', fontStyle: 'bold', color: '#ffffff',
-      stroke: '#000000', strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(100).setScrollFactor(0);
+    this.add.text(cx, 40, '월드맵', {
+      fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
+
+    // 코인 pill (고정)
+    const coinPill = this.add.graphics().setDepth(101).setScrollFactor(0);
+    coinPill.fillStyle(0x000000, 0.4);
+    coinPill.fillRoundedRect(W - 130, 22, 116, 36, 20);
+    coinPill.lineStyle(1, 0xFFD54F, 0.15);
+    coinPill.strokeRoundedRect(W - 130, 22, 116, 36, 20);
+    this.add.text(W - 112, 40, '🪙', { fontSize: '16px' })
+      .setOrigin(0.5).setDepth(101).setScrollFactor(0);
+    this.add.text(W - 72, 40, `${saveData.coins}`, {
+      fontSize: '14px', fontStyle: 'bold', color: '#FFD54F', fontFamily: 'monospace',
+    }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
 
     // ─── 경로 포인트 계산 (지그재그) ──────────
     const marginX = 120;
@@ -61,20 +77,24 @@ export class LevelSelectScene extends Phaser.Scene {
     const points = [];
     let curY = totalHeight - mapPadBottom;
 
-    let levelIdx = 0;
     worlds.forEach((world, wi) => {
       const levelStart = world.levels[0];
       const levelEnd = world.levels[1];
       const count = levelEnd - levelStart + 1;
 
-      // 월드 헤더 Y
+      // 월드 헤더
       const headerY = curY;
       curY -= headerHeight;
 
-      // 월드 헤더
+      // 월드 헤더 glass pill
+      const hdrG = this.add.graphics();
+      hdrG.fillStyle(0xffffff, 0.06);
+      hdrG.fillRoundedRect(cx - 90, headerY - 18, 180, 36, 18);
+      hdrG.lineStyle(1, 0xffffff, 0.08);
+      hdrG.strokeRoundedRect(cx - 90, headerY - 18, 180, 36, 18);
+
       this.add.text(cx, headerY, `${world.icon} ${world.name}`, {
-        fontSize: '28px', fontStyle: 'bold', color: '#ffffff',
-        stroke: '#000000', strokeThickness: 3,
+        fontSize: '18px', fontStyle: 'bold', color: '#FFD54F',
       }).setOrigin(0.5);
 
       // 지그재그 경로로 레벨 배치
@@ -90,10 +110,9 @@ export class LevelSelectScene extends Phaser.Scene {
 
         curY -= nodeSpacingY;
         points.push({ x, y: curY, level: levelStart + i, worldIdx: wi });
-        levelIdx++;
       }
 
-      curY -= 20; // 월드 간 여백
+      curY -= 20;
     });
 
     // ─── 경로 라인 (점선) ────────────────────
@@ -101,38 +120,35 @@ export class LevelSelectScene extends Phaser.Scene {
     for (let i = 1; i < points.length; i++) {
       const prev = points[i - 1];
       const cur = points[i];
-      // 같은 월드 내만 연결
       if (prev.worldIdx === cur.worldIdx) {
-        this.drawDottedLine(pathGfx, prev.x, prev.y, cur.x, cur.y, 0x555577, 0.5);
+        this.drawDottedLine(pathGfx, prev.x, prev.y, cur.x, cur.y, 0xA78BFA, 0.3);
       }
     }
 
     // ─── 레벨 노드 ──────────────────────────
-    const nodeSize = 80;
+    const nodeSize = 72;
     let currentLevelY = 0;
 
     points.forEach(({ x, y, level }, i) => {
       const isUnlocked = level <= saveData.unlockedLevel;
       const isCurrent = level === saveData.unlockedLevel;
       const stars = saveData.levelStars[level] || 0;
-      const world = worlds[points[i].worldIdx];
 
       if (isCurrent) currentLevelY = y;
 
-      let bgColor = 0x333344;
-      if (isCurrent) bgColor = 0xe67e22;
-      else if (isUnlocked && stars >= 3) bgColor = 0xf1c40f;
-      else if (isUnlocked) bgColor = world.bgColor || 0x3498db;
-
       if (isUnlocked) {
+        let bgColor = 0x2979FF;
+        if (isCurrent) bgColor = 0xFB8C00;
+        else if (stars >= 3) bgColor = 0xFFD54F;
+
         const btn = new UIButton(this, x, y, nodeSize, nodeSize, {
           text: `${level}`,
-          fontSize: '28px',
+          fontSize: '24px',
           bgColor,
           radius: nodeSize / 2,
           shadowOffset: 3,
           glow: isCurrent,
-          glowColor: 0xe67e22,
+          glowColor: 0xFB8C00,
           onClick: () => fadeToScene(this, 'Game', { level }),
         });
 
@@ -140,31 +156,31 @@ export class LevelSelectScene extends Phaser.Scene {
         [btn.bg, btn.label, btn.shadow].forEach(el => el.setAlpha(0));
         this.tweens.add({
           targets: [btn.bg, btn.label, btn.shadow, btn.hitArea],
-          alpha: 1, duration: 200, delay: i * 25,
+          alpha: 1, duration: 200, delay: i * 20,
         });
 
         // 별
         if (stars > 0) {
-          const starStr = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-          const starText = this.add.text(x, y + nodeSize / 2 + 8, starStr, {
-            fontSize: '13px', color: '#f1c40f',
+          const starStr = '⭐'.repeat(stars);
+          const starText = this.add.text(x, y + nodeSize / 2 + 10, starStr, {
+            fontSize: '12px',
           }).setOrigin(0.5).setAlpha(0);
           this.tweens.add({
-            targets: starText, alpha: 1, duration: 200, delay: i * 25 + 80,
+            targets: starText, alpha: 1, duration: 200, delay: i * 20 + 80,
           });
         }
       } else {
         // 잠긴 레벨
         const g = this.add.graphics();
-        g.fillStyle(0x222233, 0.5);
+        g.fillStyle(0xffffff, 0.04);
         g.fillCircle(x, y, nodeSize / 2);
-        g.lineStyle(1, 0x333344, 0.3);
+        g.lineStyle(1, 0xffffff, 0.08);
         g.strokeCircle(x, y, nodeSize / 2);
-        const lock = this.add.text(x, y, '🔒', { fontSize: '22px' }).setOrigin(0.5);
+        const lock = this.add.text(x, y, '🔒', { fontSize: '20px' }).setOrigin(0.5);
 
         [g, lock].forEach(el => el.setAlpha(0));
         this.tweens.add({
-          targets: [g, lock], alpha: 0.7, duration: 200, delay: i * 25,
+          targets: [g, lock], alpha: 0.5, duration: 200, delay: i * 20,
         });
       }
     });

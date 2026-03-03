@@ -18,7 +18,7 @@ export class GameScene extends Phaser.Scene {
 
   init(data) {
     this.level = data.level || 1;
-    this.activeBooster = null; // 'hammer' 등 사용 대기 중인 부스터
+    this.activeBooster = null;
     this.isDaily = !!data.dailyLevel;
     this.dailyLevel = data.dailyLevel || null;
     this.dailyDate = data.dailyDate || null;
@@ -29,6 +29,7 @@ export class GameScene extends Phaser.Scene {
     const cx = GAME_CONFIG.WIDTH / 2;
     const { ROWS, COLS, CELL_SIZE, OFFSET_X, OFFSET_Y, PADDING } = GAME_CONFIG.BOARD;
     this.boardConfig = { ROWS, COLS, CELL_SIZE, OFFSET_X, OFFSET_Y };
+    const UI = GAME_CONFIG.UI;
 
     // ─── 배경 ────────────────────────────────────
     this.add.image(cx, GAME_CONFIG.HEIGHT / 2, 'bg_gradient');
@@ -42,132 +43,169 @@ export class GameScene extends Phaser.Scene {
 
     this.goalManager = new GoalManager(levelData);
 
-    // ─── 상단 UI ────────────────────────────────
+    // ─── 상단 HUD (JSX 스타일) ─────────────────
 
-    // 뒤로가기
-    this.add.text(30, 20, '< 뒤로', {
-      fontSize: '22px',
-      color: '#ffffff',
-    }).setInteractive({ useHandCursor: true })
+    // 뒤로가기 (glass rounded button)
+    const backBg = this.add.graphics();
+    backBg.fillStyle(0xffffff, 0.1);
+    backBg.fillRoundedRect(14, 14, 44, 40, 12);
+    this.add.text(36, 34, '✕', {
+      fontSize: '18px', fontStyle: 'bold', color: '#ffffff',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
       .on('pointerup', () => this.showExitConfirm());
 
-    // 레벨 표시
-    this.add.text(cx, 20, this.isDaily ? '일일 도전 🔥' : `레벨 ${this.level}`, {
-      fontSize: '28px',
-      fontStyle: 'bold',
-      color: '#ffffff',
-    }).setOrigin(0.5, 0);
+    // 레벨 표시 (pill badge)
+    const levelPill = this.add.graphics();
+    levelPill.fillStyle(0x000000, 0.4);
+    levelPill.fillRoundedRect(cx - 75, 16, 150, 36, 20);
+    levelPill.lineStyle(1, UI.GOLD, 0.2);
+    levelPill.strokeRoundedRect(cx - 75, 16, 150, 36, 20);
+    this.add.text(cx - 10, 34, this.isDaily ? '일일 도전 🔥' : `LEVEL ${this.level}`, {
+      fontSize: '14px', fontStyle: 'bold', color: '#FFD54F',
+    }).setOrigin(0.5);
+    this.add.text(cx - 55, 34, '⭐', { fontSize: '16px' }).setOrigin(0.5);
 
-    // 일시정지 버튼
-    this.add.text(GAME_CONFIG.WIDTH - 30, 20, '⏸', {
-      fontSize: '28px',
-      color: '#ffffff',
-    }).setOrigin(1, 0).setInteractive({ useHandCursor: true })
-      .on('pointerup', () => this.showPauseMenu());
+    // 코인 (pill)
+    const coinPill = this.add.graphics();
+    coinPill.fillStyle(0x000000, 0.4);
+    coinPill.fillRoundedRect(GAME_CONFIG.WIDTH - 130, 16, 116, 36, 20);
+    coinPill.lineStyle(1, UI.GOLD, 0.15);
+    coinPill.strokeRoundedRect(GAME_CONFIG.WIDTH - 130, 16, 116, 36, 20);
+    this.add.text(GAME_CONFIG.WIDTH - 112, 34, '🪙', { fontSize: '16px' }).setOrigin(0.5);
+    this.coinText = this.add.text(GAME_CONFIG.WIDTH - 72, 34, `${SaveManager.getCoins()}`, {
+      fontSize: '14px', fontStyle: 'bold', color: '#FFD54F',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5);
 
-    // ─── 목표 UI ────────────────────────────────
+    // 일시정지 (hidden, back button doubles as exit)
+    // No separate pause button; we use the back button for exit confirm
 
+    // ─── 이동/점수 패널 (JSX glass style) ──────
+
+    const panelY = 66;
+    const panelW = 140;
+    const panelH = 62;
+    const panelGap = 16;
+
+    // 이동 횟수 패널
+    const movesPanelX = cx - panelW - panelGap / 2;
+    const movesPanelG = this.add.graphics();
+    movesPanelG.fillStyle(0xffffff, 0.06);
+    movesPanelG.fillRoundedRect(movesPanelX, panelY, panelW, panelH, 16);
+    movesPanelG.lineStyle(1, 0xffffff, 0.08);
+    movesPanelG.strokeRoundedRect(movesPanelX, panelY, panelW, panelH, 16);
+
+    this.add.text(movesPanelX + panelW / 2, panelY + 14, '남은 횟수', {
+      fontSize: '11px', fontStyle: 'bold', color: 'rgba(255,255,255,0.5)',
+    }).setOrigin(0.5);
+
+    this.movesText = this.add.text(movesPanelX + panelW / 2, panelY + 42, `${this.goalManager.movesLeft}`, {
+      fontSize: '32px', fontStyle: 'bold', color: '#ffffff',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    // 점수 패널
+    const scorePanelX = cx + panelGap / 2;
+    const scorePanelG = this.add.graphics();
+    scorePanelG.fillStyle(0xffffff, 0.06);
+    scorePanelG.fillRoundedRect(scorePanelX, panelY, panelW, panelH, 16);
+    scorePanelG.lineStyle(1, 0xffffff, 0.08);
+    scorePanelG.strokeRoundedRect(scorePanelX, panelY, panelW, panelH, 16);
+
+    this.add.text(scorePanelX + panelW / 2, panelY + 14, '점수', {
+      fontSize: '11px', fontStyle: 'bold', color: 'rgba(255,255,255,0.5)',
+    }).setOrigin(0.5);
+
+    this.scoreText = this.add.text(scorePanelX + panelW / 2, panelY + 42, '0', {
+      fontSize: '32px', fontStyle: 'bold', color: '#FFD54F',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    // ─── 목표 UI (JSX target display) ──────────
+
+    const goalY = 142;
     this.goalTexts = [];
-    const goalStartY = 65;
     const goalColors = GAME_CONFIG.COLOR_HEX;
-
     const obstacleIcons = { ice: '🧊', chain: '⛓', wood: '📦' };
+
+    // 목표 pill 배경
+    const goalCount = this.goalManager.goals.length;
+    const goalPillW = Math.max(200, goalCount * 90 + 40);
+    const goalPillG = this.add.graphics();
+    goalPillG.fillStyle(0x000000, 0.3);
+    goalPillG.fillRoundedRect(cx - goalPillW / 2, goalY, goalPillW, 44, 14);
+    goalPillG.lineStyle(1, 0xffffff, 0.06);
+    goalPillG.strokeRoundedRect(cx - goalPillW / 2, goalY, goalPillW, 44, 14);
+
+    const goalSpacing = goalPillW / (goalCount + 1);
     this.goalManager.goals.forEach((goal, i) => {
-      let hex, label;
+      const gx = cx - goalPillW / 2 + goalSpacing * (i + 1);
+
       if (goal.type === 'collect') {
-        hex = goalColors[goal.color] || 0xffffff;
-        label = `${goal.color}: 0/${goal.count}`;
+        const hex = goalColors[goal.color] || 0xffffff;
+        // Mini gem thumbnail (28x28 rounded)
+        const thumb = this.add.graphics();
+        thumb.fillStyle(hex, 1);
+        thumb.fillRoundedRect(gx - 36, goalY + 8, 28, 28, 8);
+        // Shine on thumbnail
+        thumb.fillStyle(0xffffff, 0.3);
+        thumb.fillCircle(gx - 26, goalY + 16, 5);
+
+        const text = this.add.text(gx, goalY + 22, `${goal.current || 0}/${goal.count}`, {
+          fontSize: '15px', fontStyle: 'bold', color: 'rgba(255,255,255,0.8)',
+          fontFamily: 'monospace',
+        }).setOrigin(0, 0.5);
+        this.goalTexts.push(text);
       } else if (goal.type === 'destroy_obstacle') {
-        hex = 0xaaaaaa;
-        label = `${obstacleIcons[goal.obstacleType] || '?'} ${goal.obstacleType}: 0/${goal.count}`;
+        this.add.text(gx - 36, goalY + 22, obstacleIcons[goal.obstacleType] || '?', {
+          fontSize: '22px',
+        }).setOrigin(0, 0.5);
+        const text = this.add.text(gx, goalY + 22, `${goal.current || 0}/${goal.count}`, {
+          fontSize: '15px', fontStyle: 'bold', color: 'rgba(255,255,255,0.8)',
+          fontFamily: 'monospace',
+        }).setOrigin(0, 0.5);
+        this.goalTexts.push(text);
       }
-      const colorDot = this.add.circle(cx - 100, goalStartY + i * 30, 8, hex);
-      const text = this.add.text(cx - 80, goalStartY + i * 30, label, {
-        fontSize: '20px',
-        color: '#ffffff',
-      }).setOrigin(0, 0.5);
-      this.goalTexts.push(text);
     });
 
     this.goalManager.onGoalUpdate = (goals) => {
       goals.forEach((goal, i) => {
         if (this.goalTexts[i]) {
           const done = goal.current >= goal.count;
-          let label;
-          if (goal.type === 'collect') {
-            label = `${goal.color}: ${goal.current}/${goal.count}`;
-          } else if (goal.type === 'destroy_obstacle') {
-            label = `${obstacleIcons[goal.obstacleType] || '?'} ${goal.obstacleType}: ${goal.current}/${goal.count}`;
-          }
-          this.goalTexts[i].setText(label);
-          this.goalTexts[i].setColor(done ? '#2ecc71' : '#ffffff');
+          this.goalTexts[i].setText(`${goal.current}/${goal.count}`);
+          this.goalTexts[i].setColor(done ? '#00E676' : 'rgba(255,255,255,0.8)');
         }
       });
-
-      // 목표 달성 체크
       if (this.goalManager.isAllGoalsComplete()) {
         this.onLevelClear();
       }
     };
 
-    // 이동 횟수
-    const goalsHeight = this.goalManager.goals.length * 30;
-    this.movesText = this.add.text(cx, goalStartY + goalsHeight + 10, `남은 이동: ${this.goalManager.movesLeft}`, {
-      fontSize: '22px',
-      color: '#ffffff',
-    }).setOrigin(0.5, 0);
+    // 콤보 텍스트
+    this.comboText = this.add.text(cx, 210, '', {
+      fontSize: '48px', fontStyle: 'bold', color: '#FFD54F',
+    }).setOrigin(0.5).setAlpha(0).setDepth(20);
+    this.comboSubText = this.add.text(cx, 250, '', {
+      fontSize: '16px', fontStyle: 'bold', color: '#FF8F00',
+    }).setOrigin(0.5).setAlpha(0).setDepth(20);
 
-    // 점수
-    this.scoreText = this.add.text(cx, goalStartY + goalsHeight + 40, '점수: 0', {
-      fontSize: '22px',
-      color: '#f1c40f',
-    }).setOrigin(0.5, 0);
-
-    // 코인 표시
-    this.coinText = this.add.text(GAME_CONFIG.WIDTH - 20, goalStartY + goalsHeight + 40, `💰 ${SaveManager.getCoins()}`, {
-      fontSize: '18px',
-      color: '#f1c40f',
-    }).setOrigin(1, 0);
-
-    // 콤보
-    this.comboText = this.add.text(cx, goalStartY + goalsHeight + 70, '', {
-      fontSize: '28px',
-      fontStyle: 'bold',
-      color: '#e74c3c',
-    }).setOrigin(0.5, 0).setAlpha(0);
-
-    // ─── 보드 배경 (글로우 + 그리드) ──────────────
+    // ─── 보드 배경 (JSX glass-morphism) ─────────
 
     const boardWidth = COLS * CELL_SIZE - PADDING;
     const boardHeight = ROWS * CELL_SIZE - PADDING;
     const bx = OFFSET_X + boardWidth / 2;
     const by = OFFSET_Y + boardHeight / 2;
 
-    // 아우터 글로우
-    const outerGlow = this.add.rectangle(bx, by, boardWidth + 28, boardHeight + 28, 0x1a3a5c, 0.25);
-    if (outerGlow.preFX) {
-      outerGlow.preFX.addGlow(0x3498db, 5, 0, false, 0.04, 12);
-    }
-
-    // 메인 보드 bg
-    this.add.rectangle(bx, by, boardWidth + 16, boardHeight + 16, 0x0d1b2a, 0.9)
-      .setStrokeStyle(2, 0x1a4a6e, 0.6);
-
-    // 인너 섀도
-    this.add.rectangle(bx, OFFSET_Y - 2, boardWidth + 12, 6, 0x000000, 0.15);
-    this.add.rectangle(OFFSET_X - 2, by, 6, boardHeight + 12, 0x000000, 0.1);
-
-    // 미세 그리드 라인
-    const gridLines = this.add.graphics();
-    gridLines.lineStyle(1, 0xffffff, 0.025);
-    for (let r = 1; r < ROWS; r++) {
-      const ly = OFFSET_Y + r * CELL_SIZE - PADDING / 2;
-      gridLines.lineBetween(OFFSET_X, ly, OFFSET_X + boardWidth, ly);
-    }
-    for (let c = 1; c < COLS; c++) {
-      const lx = OFFSET_X + c * CELL_SIZE - PADDING / 2;
-      gridLines.lineBetween(lx, OFFSET_Y, lx, OFFSET_Y + boardHeight);
-    }
+    // Glass board container
+    const boardBg = this.add.graphics();
+    // Gradient-like glass effect
+    boardBg.fillStyle(0xffffff, 0.06);
+    boardBg.fillRoundedRect(bx - boardWidth / 2 - 10, by - boardHeight / 2 - 10, boardWidth + 20, boardHeight + 20, 20);
+    boardBg.lineStyle(1, 0xffffff, 0.08);
+    boardBg.strokeRoundedRect(bx - boardWidth / 2 - 10, by - boardHeight / 2 - 10, boardWidth + 20, boardHeight + 20, 20);
+    // Inner top highlight
+    boardBg.fillStyle(0xffffff, 0.03);
+    boardBg.fillRoundedRect(bx - boardWidth / 2 - 8, by - boardHeight / 2 - 8, boardWidth + 16, 4, 2);
 
     // ─── 보드 & 엔진 생성 ───────────────────────
 
@@ -176,7 +214,7 @@ export class GameScene extends Phaser.Scene {
 
     // 콜백 등록
     this.engine.onScoreUpdate = (score, combo) => {
-      this.scoreText.setText(`점수: ${score}`);
+      this.scoreText.setText(`${score}`);
       if (combo >= 2) {
         this.showCombo(combo);
       }
@@ -184,9 +222,9 @@ export class GameScene extends Phaser.Scene {
 
     this.engine.onMoveUsed = () => {
       this.goalManager.useMove();
-      this.movesText.setText(`남은 이동: ${this.goalManager.movesLeft}`);
-      if (this.goalManager.movesLeft <= 3) {
-        this.movesText.setColor('#e74c3c');
+      this.movesText.setText(`${this.goalManager.movesLeft}`);
+      if (this.goalManager.movesLeft <= 5) {
+        this.movesText.setColor('#FF5252');
       }
     };
 
@@ -205,7 +243,6 @@ export class GameScene extends Phaser.Scene {
 
     this.engine.onInvalidSwap = () => {
       audioManager.playInvalidSwap();
-      // 카메라 살짝 흔들기
       this.cameras.main.shake(100, 0.003);
     };
 
@@ -219,7 +256,6 @@ export class GameScene extends Phaser.Scene {
 
     this.engine.onObstacleDestroyed = (obstacleType) => {
       this.goalManager.onObstacleDestroyed(obstacleType);
-      // 장애물 파괴 사운드
       if (obstacleType === 'ice') audioManager.playIceCrack();
       else if (obstacleType === 'chain') audioManager.playChainBreak();
       else if (obstacleType === 'wood') audioManager.playWoodSmash();
@@ -229,27 +265,47 @@ export class GameScene extends Phaser.Scene {
 
     this.hintManager = new HintManager(this, this.engine);
 
-    // ─── 부스터 UI (보드 아래) ─────────────────
+    // ─── 부스터 UI (JSX power-up cards) ─────────
 
-    const boosterY = OFFSET_Y + boardHeight + 40;
+    const boosterY = OFFSET_Y + boardHeight + 35;
     this.boosterButtons = {};
     const boosterList = ['hammer', 'shuffle', 'extraMoves'];
-    const boosterStartX = cx - (boosterList.length - 1) * 90;
+    const boosterIcons = { hammer: '🔨', shuffle: '🔄', extraMoves: '⚡' };
+    const boosterLabels = { hammer: '망치', shuffle: '셔플', extraMoves: '+5' };
 
     boosterList.forEach((id, i) => {
-      const bx = boosterStartX + i * 180;
+      const bx2 = cx - 100 + i * 100;
       const booster = BOOSTERS[id];
 
-      const btn = new UIButton(this, bx, boosterY, 160, 48, {
-        text: `${booster.icon} ${booster.cost}💰`,
-        fontSize: '18px',
-        bgColor: 0x2c3e50,
-        radius: 10,
-        shadowOffset: 3,
-        onClick: () => this.onBoosterClick(id),
-      });
+      // Glass card background
+      const cardG = this.add.graphics();
+      cardG.fillStyle(0xffffff, 0.06);
+      cardG.fillRoundedRect(bx2 - 28, boosterY - 28, 56, 56, 14);
+      cardG.lineStyle(1, 0xffffff, 0.1);
+      cardG.strokeRoundedRect(bx2 - 28, boosterY - 28, 56, 56, 14);
 
-      this.boosterButtons[id] = btn;
+      // Icon
+      this.add.text(bx2, boosterY, boosterIcons[id], { fontSize: '26px' }).setOrigin(0.5);
+
+      // Count badge
+      const badgeG = this.add.graphics();
+      badgeG.fillStyle(0x2196F3, 1);
+      badgeG.fillCircle(bx2 + 22, boosterY - 22, 10);
+      this.add.text(bx2 + 22, boosterY - 22, `${booster.cost}`, {
+        fontSize: '9px', fontStyle: 'bold', color: '#ffffff',
+      }).setOrigin(0.5);
+
+      // Label
+      this.add.text(bx2, boosterY + 36, boosterLabels[id], {
+        fontSize: '10px', fontStyle: 'bold', color: 'rgba(255,255,255,0.4)',
+      }).setOrigin(0.5);
+
+      // Hit area
+      const hitArea = this.add.rectangle(bx2, boosterY, 56, 56, 0xffffff, 0)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerup', () => this.onBoosterClick(id));
+
+      this.boosterButtons[id] = { cardG, hitArea };
     });
 
     // ─── 입력 처리 ──────────────────────────────
@@ -272,16 +328,13 @@ export class GameScene extends Phaser.Scene {
         this.engine.comboCount = 0;
         this.engine.isProcessing = false;
 
-        // 힌트 타이머 재시작
         if (this.hintManager) this.hintManager.resetTimer();
 
-        // 목표 달성 (이미 onGoalUpdate에서 처리하지만 이중 체크)
         if (this.goalManager.isAllGoalsComplete()) {
           this.onLevelClear();
           return;
         }
 
-        // 이동 횟수 소진 → 실패
         if (this.goalManager.movesLeft <= 0) {
           this.time.delayedCall(500, () => {
             fadeToScene(this, 'Result', {
@@ -328,7 +381,7 @@ export class GameScene extends Phaser.Scene {
       angle: { min: 260, max: 280 },
       scale: { start: 0.3, end: 0.08 },
       alpha: { start: 0.12, end: 0 },
-      tint: [0x3498db, 0x9b59b6, 0x2ecc71],
+      tint: [0xA78BFA, 0x60A5FA, 0x4ECDC4],
       lifespan: { min: 4000, max: 8000 },
       frequency: 900,
       quantity: 1,
@@ -338,7 +391,7 @@ export class GameScene extends Phaser.Scene {
   // ─── 레벨 클리어 ──────────────────────────────
 
   onLevelClear() {
-    if (this._cleared) return; // 중복 방지
+    if (this._cleared) return;
     this._cleared = true;
 
     this.engine.isProcessing = true;
@@ -347,7 +400,6 @@ export class GameScene extends Phaser.Scene {
     const coins = this.goalManager.getRewardCoins(stars);
 
     if (this.isDaily) {
-      // 일일 도전 클리어
       SaveManager.completeDailyChallenge(this.dailyDate);
       SaveManager.addCoins(coins);
 
@@ -362,7 +414,6 @@ export class GameScene extends Phaser.Scene {
         });
       });
     } else {
-      // 일반 레벨 클리어
       SaveManager.saveLevelResult(this.level, stars, this.engine.score);
       SaveManager.addCoins(coins);
 
@@ -402,23 +453,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   onPointerDown(pointer) {
-    audioManager.unlock(); // 모바일 오디오 unlock
+    audioManager.unlock();
     if (this.engine.isProcessing) return;
     if (this._paused) return;
 
-    // 힌트 리셋
     if (this.hintManager) this.hintManager.resetTimer();
 
     const { row, col } = this.pixelToGrid(pointer.x, pointer.y);
     if (!this.isValidCell(row, col)) return;
 
-    // 망치 부스터 모드
     if (this.activeBooster === 'hammer') {
       this.useHammer(row, col);
       return;
     }
 
-    // 이전 선택 해제
     if (this.selectedGem) {
       const prevGem = this.board.getGem(this.selectedGem.row, this.selectedGem.col);
       if (prevGem) prevGem.setSelected(false);
@@ -488,7 +536,6 @@ export class GameScene extends Phaser.Scene {
     if (boosterId === 'hammer') {
       this.activeBooster = 'hammer';
       this.showMessage('제거할 블록을 선택하세요');
-      this.boosterButtons.hammer.setColor(0xe74c3c);
     } else if (boosterId === 'shuffle') {
       if (BoosterManager.purchase('shuffle')) {
         this.updateCoinDisplay();
@@ -498,7 +545,7 @@ export class GameScene extends Phaser.Scene {
       if (BoosterManager.purchase('extraMoves')) {
         this.updateCoinDisplay();
         this.goalManager.addMoves(GAME_CONFIG.ECONOMY.EXTRA_MOVES_COUNT);
-        this.movesText.setText(`남은 이동: ${this.goalManager.movesLeft}`);
+        this.movesText.setText(`${this.goalManager.movesLeft}`);
         this.movesText.setColor('#ffffff');
         this.showMessage(`+${GAME_CONFIG.ECONOMY.EXTRA_MOVES_COUNT} 이동!`);
       }
@@ -509,12 +556,10 @@ export class GameScene extends Phaser.Scene {
     if (!BoosterManager.purchase('hammer')) return;
     this.updateCoinDisplay();
     this.activeBooster = null;
-    this.boosterButtons.hammer.setColor(0x2c3e50);
 
     const gem = this.board.getGem(row, col);
     if (!gem) return;
 
-    // 장애물이 있으면 장애물 우선 처리
     if (gem.obstacle) {
       const type = gem.obstacle.type;
       const stillExists = gem.damageObstacle();
@@ -545,10 +590,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   updateCoinDisplay() {
-    this.coinText.setText(`💰 ${SaveManager.getCoins()}`);
+    this.coinText.setText(`${SaveManager.getCoins()}`);
   }
 
-  // ─── 일시정지 / 나가기 ────────────────────────
+  // ─── 일시정지 / 나가기 (JSX glass modal) ──────
 
   showPauseMenu() {
     if (this._paused) return;
@@ -556,35 +601,38 @@ export class GameScene extends Phaser.Scene {
     this.engine.isProcessing = true;
 
     const { WIDTH, HEIGHT } = GAME_CONFIG;
+    const cx = WIDTH / 2;
+    const cy = HEIGHT / 2;
     const elements = [];
 
-    const overlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0.7)
+    const overlay = this.add.rectangle(cx, cy, WIDTH, HEIGHT, 0x000000, 0.75)
       .setDepth(50).setInteractive();
     elements.push(overlay);
 
+    // Glass panel
     const panel = this.add.graphics().setDepth(51);
-    panel.fillStyle(0x1a1a2e, 0.95);
-    panel.fillRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 175, 400, 350, 20);
-    panel.lineStyle(3, 0x3498db, 1);
-    panel.strokeRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 175, 400, 350, 20);
+    panel.fillStyle(0x1E1452, 0.98);
+    panel.fillRoundedRect(cx - 170, cy - 175, 340, 350, 28);
+    panel.lineStyle(1, 0xFFD54F, 0.2);
+    panel.strokeRoundedRect(cx - 170, cy - 175, 340, 350, 28);
     elements.push(panel);
 
-    const titleTxt = this.add.text(WIDTH / 2, HEIGHT / 2 - 120, '일시정지', {
-      fontSize: '36px', fontStyle: 'bold', color: '#ffffff',
+    const titleTxt = this.add.text(cx, cy - 130, '⏸ 일시정지', {
+      fontSize: '28px', fontStyle: 'bold', color: '#FFD54F',
     }).setOrigin(0.5).setDepth(52);
     elements.push(titleTxt);
 
     const cleanup = () => { elements.forEach(el => el.destroy()); };
 
     const btnData = [
-      { y: -40, text: '계속하기', color: 0x2ecc71, action: 'resume' },
-      { y: 30, text: '재시작', color: 0x3498db, action: 'restart' },
-      { y: 100, text: this.isDaily ? '일일 도전' : '레벨 선택', color: 0x7f8c8d, action: 'exit' },
+      { y: -40, text: '계속하기', color: 0x43A047, action: 'resume' },
+      { y: 35, text: '재시작', color: 0x2979FF, action: 'restart' },
+      { y: 110, text: this.isDaily ? '일일 도전' : '레벨 선택', color: 0x424242, action: 'exit' },
     ];
 
     btnData.forEach(({ y, text, color, action }) => {
-      const btn = new UIButton(this, WIDTH / 2, HEIGHT / 2 + y, 260, 55, {
-        text, bgColor: color, fontSize: '26px', depth: 52,
+      const btn = new UIButton(this, cx, cy + y, 240, 55, {
+        text, bgColor: color, fontSize: '20px', depth: 52, radius: 14, shadowOffset: 4,
         onClick: () => {
           cleanup();
           if (action === 'resume') {
@@ -611,37 +659,39 @@ export class GameScene extends Phaser.Scene {
     this.engine.isProcessing = true;
 
     const { WIDTH, HEIGHT } = GAME_CONFIG;
+    const cx = WIDTH / 2;
+    const cy = HEIGHT / 2;
     const elements = [];
 
-    const overlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0.7)
+    const overlay = this.add.rectangle(cx, cy, WIDTH, HEIGHT, 0x000000, 0.75)
       .setDepth(50).setInteractive();
     elements.push(overlay);
 
     const panel = this.add.graphics().setDepth(51);
-    panel.fillStyle(0x1a1a2e, 0.95);
-    panel.fillRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 110, 400, 220, 20);
-    panel.lineStyle(3, 0xe74c3c, 1);
-    panel.strokeRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 110, 400, 220, 20);
+    panel.fillStyle(0x1E1452, 0.98);
+    panel.fillRoundedRect(cx - 170, cy - 100, 340, 200, 28);
+    panel.lineStyle(1, 0xFF5252, 0.3);
+    panel.strokeRoundedRect(cx - 170, cy - 100, 340, 200, 28);
     elements.push(panel);
 
-    const title = this.add.text(WIDTH / 2, HEIGHT / 2 - 60, '나가시겠습니까?', {
-      fontSize: '28px', fontStyle: 'bold', color: '#ffffff',
+    const title = this.add.text(cx, cy - 60, '나가시겠습니까?', {
+      fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
     }).setOrigin(0.5).setDepth(52);
-    const subtitle = this.add.text(WIDTH / 2, HEIGHT / 2 - 25, '진행 상황이 저장되지 않습니다', {
-      fontSize: '18px', color: '#aaaaaa',
+    const subtitle = this.add.text(cx, cy - 30, '진행 상황이 저장되지 않습니다', {
+      fontSize: '14px', color: 'rgba(255,255,255,0.5)',
     }).setOrigin(0.5).setDepth(52);
     elements.push(title, subtitle);
 
     const cleanup = () => { elements.forEach(el => el.destroy()); };
 
-    const exitBtn = new UIButton(this, WIDTH / 2 - 80, HEIGHT / 2 + 40, 140, 50, {
-      text: '나가기', bgColor: 0xe74c3c, fontSize: '22px', depth: 52,
+    const exitBtn = new UIButton(this, cx - 75, cy + 40, 130, 50, {
+      text: '나가기', bgColor: 0xF44336, fontSize: '18px', depth: 52, radius: 14,
       onClick: () => fadeToScene(this, this.isDaily ? 'DailyChallenge' : 'LevelSelect'),
     });
     elements.push(exitBtn.shadow, exitBtn.bg, exitBtn.hitArea, exitBtn.label);
 
-    const stayBtn = new UIButton(this, WIDTH / 2 + 80, HEIGHT / 2 + 40, 140, 50, {
-      text: '계속하기', bgColor: 0x2ecc71, fontSize: '22px', depth: 52,
+    const stayBtn = new UIButton(this, cx + 75, cy + 40, 130, 50, {
+      text: '계속하기', bgColor: 0x43A047, fontSize: '18px', depth: 52, radius: 14,
       onClick: () => {
         cleanup();
         this._paused = false;
@@ -656,48 +706,56 @@ export class GameScene extends Phaser.Scene {
   showGoalPopup() {
     this.engine.isProcessing = true;
     const { WIDTH, HEIGHT } = GAME_CONFIG;
+    const cx = WIDTH / 2;
+    const cy = HEIGHT / 2;
 
-    const overlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0.6)
+    const overlay = this.add.rectangle(cx, cy, WIDTH, HEIGHT, 0x000000, 0.7)
       .setDepth(50).setInteractive();
 
-    const panelH = 180 + this.goalManager.goals.length * 35;
+    const panelH = 180 + this.goalManager.goals.length * 40;
     const panel = this.add.graphics().setDepth(51);
-    panel.fillStyle(0x1a1a2e, 0.95);
-    panel.fillRoundedRect(WIDTH / 2 - 190, HEIGHT / 2 - panelH / 2, 380, panelH, 20);
-    panel.lineStyle(3, 0xf1c40f, 1);
-    panel.strokeRoundedRect(WIDTH / 2 - 190, HEIGHT / 2 - panelH / 2, 380, panelH, 20);
+    panel.fillStyle(0x1E1452, 0.98);
+    panel.fillRoundedRect(cx - 170, cy - panelH / 2, 340, panelH, 28);
+    panel.lineStyle(1, 0xFFD54F, 0.3);
+    panel.strokeRoundedRect(cx - 170, cy - panelH / 2, 340, panelH, 28);
 
-    const title = this.add.text(WIDTH / 2, HEIGHT / 2 - panelH / 2 + 30,
-      this.isDaily ? '일일 도전 🔥' : `레벨 ${this.level}`, {
-      fontSize: '32px', fontStyle: 'bold', color: this.isDaily ? '#e67e22' : '#f1c40f',
+    const title = this.add.text(cx, cy - panelH / 2 + 35,
+      this.isDaily ? '일일 도전 🔥' : `LEVEL ${this.level}`, {
+      fontSize: '28px', fontStyle: 'bold', color: '#FFD54F',
     }).setOrigin(0.5).setDepth(52);
 
-    const movesLabel = this.add.text(WIDTH / 2, HEIGHT / 2 - panelH / 2 + 65, `이동 ${this.goalManager.moves}회`, {
-      fontSize: '20px', color: '#ffffff',
+    const movesLabel = this.add.text(cx, cy - panelH / 2 + 70, `이동 ${this.goalManager.moves}회`, {
+      fontSize: '16px', color: 'rgba(255,255,255,0.6)',
     }).setOrigin(0.5).setDepth(52);
 
     const elements = [overlay, panel, title, movesLabel];
 
     this.goalManager.goals.forEach((goal, i) => {
-      const y = HEIGHT / 2 - panelH / 2 + 100 + i * 35;
+      const y = cy - panelH / 2 + 110 + i * 40;
       let hex, labelText;
       if (goal.type === 'collect') {
         hex = GAME_CONFIG.COLOR_HEX[goal.color] || 0xffffff;
-        labelText = `${goal.color} × ${goal.count}`;
+        labelText = `${goal.color} x ${goal.count}`;
+        // Mini gem
+        const dot = this.add.graphics().setDepth(52);
+        dot.fillStyle(hex, 1);
+        dot.fillRoundedRect(cx - 70, y - 12, 24, 24, 6);
+        dot.fillStyle(0xffffff, 0.3);
+        dot.fillCircle(cx - 62, y - 6, 4);
+        elements.push(dot);
       } else if (goal.type === 'destroy_obstacle') {
         const icons = { ice: '🧊', chain: '⛓', wood: '📦' };
         hex = 0xaaaaaa;
-        labelText = `${icons[goal.obstacleType] || '?'} ${goal.obstacleType} × ${goal.count}`;
+        labelText = `${icons[goal.obstacleType] || '?'} ${goal.obstacleType} x ${goal.count}`;
       }
-      const dot = this.add.circle(WIDTH / 2 - 80, y, 8, hex).setDepth(52);
-      const label = this.add.text(WIDTH / 2 - 60, y, labelText, {
-        fontSize: '20px', color: '#ffffff',
+      const label = this.add.text(cx - 35, y, labelText, {
+        fontSize: '18px', fontStyle: 'bold', color: '#ffffff',
       }).setOrigin(0, 0.5).setDepth(52);
-      elements.push(dot, label);
+      elements.push(label);
     });
 
-    const startBtn = new UIButton(this, WIDTH / 2, HEIGHT / 2 + panelH / 2 - 40, 200, 50, {
-      text: '시작!', bgColor: 0x2ecc71, fontSize: '26px', depth: 52,
+    const startBtn = new UIButton(this, cx, cy + panelH / 2 - 40, 200, 50, {
+      text: '시작!', bgColor: 0x43A047, fontSize: '22px', depth: 52, radius: 14,
       onClick: () => {
         elements.forEach(el => el.destroy());
         startBtn.destroy();
@@ -712,6 +770,8 @@ export class GameScene extends Phaser.Scene {
   showTutorial() {
     this.engine.isProcessing = true;
     const { WIDTH, HEIGHT } = GAME_CONFIG;
+    const cx = WIDTH / 2;
+    const cy = HEIGHT / 2;
 
     const steps = [
       { text: '블록을 스와이프해서\n같은 색 3개를 맞추세요!', icon: '👆' },
@@ -721,23 +781,23 @@ export class GameScene extends Phaser.Scene {
 
     let stepIndex = 0;
 
-    const overlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0.7)
+    const overlay = this.add.rectangle(cx, cy, WIDTH, HEIGHT, 0x000000, 0.75)
       .setDepth(60).setInteractive();
     const panel = this.add.graphics().setDepth(61);
-    panel.fillStyle(0x1a1a2e, 0.95);
-    panel.fillRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 130, 400, 260, 20);
-    panel.lineStyle(3, 0x2ecc71, 1);
-    panel.strokeRoundedRect(WIDTH / 2 - 200, HEIGHT / 2 - 130, 400, 260, 20);
+    panel.fillStyle(0x1E1452, 0.98);
+    panel.fillRoundedRect(cx - 170, cy - 120, 340, 240, 28);
+    panel.lineStyle(1, 0x43A047, 0.3);
+    panel.strokeRoundedRect(cx - 170, cy - 120, 340, 240, 28);
 
-    const iconText = this.add.text(WIDTH / 2, HEIGHT / 2 - 60, steps[0].icon, {
+    const iconText = this.add.text(cx, cy - 60, steps[0].icon, {
       fontSize: '48px',
     }).setOrigin(0.5).setDepth(62);
-    const bodyText = this.add.text(WIDTH / 2, HEIGHT / 2 + 10, steps[0].text, {
-      fontSize: '22px', color: '#ffffff', align: 'center',
+    const bodyText = this.add.text(cx, cy + 10, steps[0].text, {
+      fontSize: '18px', color: '#ffffff', align: 'center',
     }).setOrigin(0.5).setDepth(62);
 
-    const nextBtnUI = new UIButton(this, WIDTH / 2, HEIGHT / 2 + 85, 160, 45, {
-      text: '다음', bgColor: 0x2ecc71, fontSize: '22px', depth: 62,
+    const nextBtnUI = new UIButton(this, cx, cy + 80, 160, 45, {
+      text: '다음', bgColor: 0x43A047, fontSize: '20px', depth: 62, radius: 14,
       onClick: () => { onNext(); },
     });
 
@@ -763,48 +823,57 @@ export class GameScene extends Phaser.Scene {
 
   showMessage(msg) {
     const cx = GAME_CONFIG.WIDTH / 2;
-    const text = this.add.text(cx, GAME_CONFIG.BOARD.OFFSET_Y - 30, msg, {
-      fontSize: '22px',
-      fontStyle: 'bold',
-      color: '#ffffff',
-      backgroundColor: '#2c3e50',
-      padding: { x: 16, y: 8 },
-    }).setOrigin(0.5).setDepth(30);
+    // Glass pill message
+    const msgBg = this.add.graphics().setDepth(30);
+    msgBg.fillStyle(0x1E1452, 0.95);
+    msgBg.fillRoundedRect(cx - 140, GAME_CONFIG.BOARD.OFFSET_Y - 50, 280, 36, 18);
+    msgBg.lineStyle(1, 0xFFD54F, 0.2);
+    msgBg.strokeRoundedRect(cx - 140, GAME_CONFIG.BOARD.OFFSET_Y - 50, 280, 36, 18);
+
+    const text = this.add.text(cx, GAME_CONFIG.BOARD.OFFSET_Y - 32, msg, {
+      fontSize: '16px', fontStyle: 'bold', color: '#FFD54F',
+    }).setOrigin(0.5).setDepth(31);
 
     this.tweens.add({
-      targets: text,
+      targets: [text, msgBg],
       alpha: 0,
-      y: text.y - 40,
-      duration: 1500,
+      y: '-=30',
+      duration: 1200,
       delay: 800,
-      onComplete: () => text.destroy(),
+      onComplete: () => { text.destroy(); msgBg.destroy(); },
     });
   }
 
   // ─── UI 이펙트 ────────────────────────────────
 
   showCombo(combo) {
-    const labels = ['', '', 'GREAT!', 'AMAZING!', 'INCREDIBLE!', 'UNBELIEVABLE!'];
-    const label = labels[Math.min(combo, labels.length - 1)] || `${combo}x COMBO!`;
-
-    this.comboText.setText(label);
-    this.comboText.setAlpha(1).setScale(0.5);
+    // JSX style combo: gold "x{combo}" + "COMBO!" sub
+    this.comboText.setText(`x${combo}`);
+    this.comboText.setAlpha(1).setScale(0.3);
+    this.comboSubText.setText('COMBO!');
+    this.comboSubText.setAlpha(1).setScale(0.5);
 
     this.tweens.add({
       targets: this.comboText,
-      scaleX: 1.2,
-      scaleY: 1.2,
+      scaleX: 1.3, scaleY: 1.3,
       duration: 200,
       ease: 'Back.easeOut',
       yoyo: true,
       hold: 400,
       onComplete: () => {
         this.tweens.add({
-          targets: this.comboText,
+          targets: [this.comboText, this.comboSubText],
           alpha: 0,
           duration: 300,
         });
       },
+    });
+
+    this.tweens.add({
+      targets: this.comboSubText,
+      scaleX: 1, scaleY: 1,
+      duration: 200,
+      ease: 'Back.easeOut',
     });
 
     if (combo >= 3) {
@@ -820,7 +889,8 @@ export class GameScene extends Phaser.Scene {
     const text = this.add.text(x, y, `+${points}`, {
       fontSize: '22px',
       fontStyle: 'bold',
-      color: combo >= 2 ? '#e74c3c' : '#f1c40f',
+      color: combo >= 2 ? '#FF5252' : '#FFD54F',
+      fontFamily: 'monospace',
     }).setOrigin(0.5);
 
     this.tweens.add({

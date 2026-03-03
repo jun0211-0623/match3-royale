@@ -35,8 +35,8 @@ export class ResultScene extends Phaser.Scene {
       audioManager.playFail();
     }
 
-    // 배경 어둡게
-    this.add.rectangle(cx, cy, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0.35);
+    // 어두운 오버레이 (blur 효과 대체)
+    this.add.rectangle(cx, cy, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0.75);
 
     // 클리어 시 컨페티
     if (this.cleared) {
@@ -46,80 +46,77 @@ export class ResultScene extends Phaser.Scene {
         angle: { min: 75, max: 105 },
         scale: { start: 0.8, end: 0.3 },
         alpha: { start: 1, end: 0.5 },
-        tint: [0xe74c3c, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6, 0xffffff],
+        tint: [0xFF1744, 0xFFC400, 0x00E676, 0x2979FF, 0xD500F9, 0xFFD54F],
         lifespan: { min: 2000, max: 4000 },
         frequency: 50,
         quantity: 2,
         rotate: { min: 0, max: 360 },
         gravityY: 80,
-      }).setDepth(1);
+      }).setDepth(10);
 
       this.time.delayedCall(3000, () => confetti.stop());
       this.time.delayedCall(7000, () => confetti.destroy());
     }
 
-    // 결과 패널
-    const panelH = this.cleared ? 450 : 380;
-    const panel = this.add.graphics();
-    panel.fillStyle(0x0d1b2a, 0.95);
-    panel.fillRoundedRect(cx - 220, cy - panelH / 2, 440, panelH, 20);
-    panel.lineStyle(3, this.cleared ? 0xf1c40f : 0xe74c3c, 1);
-    panel.strokeRoundedRect(cx - 220, cy - panelH / 2, 440, panelH, 20);
+    // ─── 결과 카드 (JSX gradient card) ──────────
 
-    // 타이틀
-    const title = this.cleared
-      ? (this.isDaily ? '도전 성공!' : '레벨 클리어!')
-      : '실패...';
-    const titleColor = this.cleared ? '#f1c40f' : '#e74c3c';
+    const panelH = this.cleared ? 420 : 350;
+    const panelW = 340;
+    const panelTop = cy - panelH / 2;
 
-    const titleText = this.add.text(cx, cy - panelH / 2 + 40, title, {
-      fontSize: '42px',
-      fontStyle: 'bold',
-      color: titleColor,
-      stroke: '#000000',
-      strokeThickness: 2,
-    }).setOrigin(0.5);
-
-    if (this.cleared && titleText.preFX) {
-      titleText.preFX.addGlow(0xf1c40f, 3, 0, false, 0.05, 8);
-    }
+    const panel = this.add.graphics().setDepth(1);
+    // Gradient: #1E1452 → #2D1B69
+    panel.fillStyle(0x1E1452, 1);
+    panel.fillRoundedRect(cx - panelW / 2, panelTop, panelW, panelH, 28);
+    // Bottom half darker
+    panel.fillStyle(0x2D1B69, 0.6);
+    panel.fillRoundedRect(cx - panelW / 2, cy, panelW, panelH / 2, { tl: 0, tr: 0, bl: 28, br: 28 });
+    // Border
+    panel.lineStyle(1, this.cleared ? 0xFFD54F : 0xFF5252, 0.2);
+    panel.strokeRoundedRect(cx - panelW / 2, panelTop, panelW, panelH, 28);
 
     if (this.cleared) {
-      // 별 애니메이션 (오버슈트 + 스파클)
-      const starY = cy - panelH / 2 + 100;
+      // 트로피
+      const trophy = this.add.text(cx, panelTop + 45, '🏆', {
+        fontSize: '56px',
+      }).setOrigin(0.5).setDepth(2).setAlpha(0).setScale(0);
+
+      this.tweens.add({
+        targets: trophy,
+        alpha: 1, scaleX: 1, scaleY: 1,
+        duration: 400, ease: 'Back.easeOut',
+      });
+
+      // 별
+      const starY = panelTop + 105;
       for (let i = 0; i < 3; i++) {
-        const star = this.add.text(cx - 60 + i * 60, starY, i < this.stars ? '★' : '☆', {
-          fontSize: '52px',
-          color: i < this.stars ? '#f1c40f' : '#555555',
-          stroke: '#000000',
-          strokeThickness: 2,
-        }).setOrigin(0.5).setScale(0).setAlpha(0);
+        const star = this.add.text(cx - 50 + i * 50, starY, '⭐', {
+          fontSize: '32px',
+        }).setOrigin(0.5).setDepth(2).setScale(0).setAlpha(0);
+
+        if (i >= this.stars) {
+          star.setAlpha(0.3);
+          star.setStyle({ fontSize: '32px' });
+        }
 
         this.tweens.add({
           targets: star,
-          scaleX: 1.3, scaleY: 1.3,
-          alpha: 1,
+          scaleX: 1, scaleY: 1,
+          alpha: i < this.stars ? 1 : 0.3,
           duration: 300,
-          delay: 400 + i * 250,
+          delay: 300 + i * 200,
           ease: 'Back.easeOut',
           onComplete: () => {
-            this.tweens.add({
-              targets: star,
-              scaleX: 1, scaleY: 1,
-              duration: 150,
-              ease: 'Power1',
-            });
-            // 스파클 파티클
             if (i < this.stars) {
               const sparkle = this.add.particles(star.x, star.y, 'particle_circle', {
                 speed: { min: 30, max: 80 },
                 angle: { min: 0, max: 360 },
-                scale: { start: 0.5, end: 0 },
-                tint: 0xf1c40f,
+                scale: { start: 0.4, end: 0 },
+                tint: 0xFFD54F,
                 lifespan: 400,
-                quantity: 8,
+                quantity: 6,
                 emitting: false,
-              });
+              }).setDepth(3);
               sparkle.explode();
               this.time.delayedCall(500, () => sparkle.destroy());
             }
@@ -127,67 +124,90 @@ export class ResultScene extends Phaser.Scene {
         });
       }
 
-      this.add.text(cx, cy - panelH / 2 + 155, `점수: ${this.score}`, {
-        fontSize: '26px', color: '#ffffff',
-      }).setOrigin(0.5);
+      // 타이틀
+      const titleText = this.isDaily ? '도전 성공!' : '스테이지 클리어!';
+      this.add.text(cx, panelTop + 148, titleText, {
+        fontSize: '28px', fontStyle: 'bold', color: '#FFD54F',
+      }).setOrigin(0.5).setDepth(2);
 
-      this.add.text(cx, cy - panelH / 2 + 190, `+${this.coins} 💰`, {
-        fontSize: '24px', color: '#f1c40f',
-      }).setOrigin(0.5);
+      // 점수
+      this.add.text(cx, panelTop + 180, `점수: ${this.score}`, {
+        fontSize: '14px', color: 'rgba(255,255,255,0.5)',
+      }).setOrigin(0.5).setDepth(2);
+
+      // 코인 보상 pill
+      const coinPillY = panelTop + 215;
+      const coinPillG = this.add.graphics().setDepth(2);
+      coinPillG.fillStyle(0xFFD54F, 0.1);
+      coinPillG.fillRoundedRect(cx - 80, coinPillY - 18, 160, 36, 14);
+      coinPillG.lineStyle(1, 0xFFD54F, 0.2);
+      coinPillG.strokeRoundedRect(cx - 80, coinPillY - 18, 160, 36, 14);
+
+      this.add.text(cx - 30, coinPillY, '🪙', { fontSize: '24px' }).setOrigin(0.5).setDepth(2);
+      this.add.text(cx + 15, coinPillY, `+${this.coins}`, {
+        fontSize: '24px', fontStyle: 'bold', color: '#FFD54F',
+      }).setOrigin(0, 0.5).setDepth(2);
 
       if (this.isDaily) {
-        // 일일 도전 스트릭 표시
+        // 스트릭 표시
         const dailyData = SaveManager.getDailyData();
-        this.add.text(cx, cy - panelH / 2 + 225, `🔥 연속 ${dailyData.streak}일`, {
-          fontSize: '24px', fontStyle: 'bold', color: '#e67e22',
-        }).setOrigin(0.5);
+        this.add.text(cx, panelTop + 260, `🔥 연속 ${dailyData.streak}일`, {
+          fontSize: '20px', fontStyle: 'bold', color: '#FF8F00',
+        }).setOrigin(0.5).setDepth(2);
 
-        // 돌아가기
-        new UIButton(this, cx, cy + 50, 280, 60, {
-          text: '확인',
-          fontSize: '28px',
-          bgColor: 0x2ecc71,
-          glow: true,
-          glowColor: 0x2ecc71,
+        // 확인 버튼
+        new UIButton(this, cx, panelTop + panelH - 60, 260, 50, {
+          text: '확인', fontSize: '18px', bgColor: 0x43A047, depth: 2, radius: 14,
           onClick: () => fadeToScene(this, 'DailyChallenge'),
         });
       } else {
+        // 버튼 영역
+        const btnY = panelTop + 275;
+
         // 다음 레벨
         if (LevelManager.hasLevel(this.level + 1)) {
-          new UIButton(this, cx, cy + 20, 280, 60, {
-            text: '다음 레벨',
-            fontSize: '28px',
-            bgColor: 0x2ecc71,
-            glow: true,
-            glowColor: 0x2ecc71,
+          new UIButton(this, cx, btnY, 260, 50, {
+            text: '다음 스테이지 ▶', fontSize: '18px', bgColor: 0x43A047, depth: 2, radius: 14,
+            shadowOffset: 4, glow: true, glowColor: 0x43A047,
             onClick: () => fadeToScene(this, 'Game', { level: this.level + 1 }),
           });
         }
 
-        // 재시도
-        new UIButton(this, cx, cy + 95, 280, 55, {
-          text: '재시도',
-          fontSize: '24px',
-          bgColor: 0x3498db,
-          onClick: () => fadeToScene(this, 'Game', { level: this.level }),
-        });
+        // 홈으로 (glass style)
+        const homeBtnY = btnY + 65;
+        const homeBg = this.add.graphics().setDepth(2);
+        homeBg.fillStyle(0xffffff, 0.1);
+        homeBg.fillRoundedRect(cx - 130, homeBtnY - 22, 260, 44, 14);
+        homeBg.lineStyle(1, 0xffffff, 0.15);
+        homeBg.strokeRoundedRect(cx - 130, homeBtnY - 22, 260, 44, 14);
+
+        this.add.text(cx, homeBtnY, '레벨 선택', {
+          fontSize: '16px', fontStyle: 'bold', color: 'rgba(255,255,255,0.7)',
+        }).setOrigin(0.5).setDepth(2)
+          .setInteractive({ useHandCursor: true })
+          .on('pointerup', () => fadeToScene(this, 'LevelSelect'));
       }
 
     } else {
-      this.add.text(cx, cy - panelH / 2 + 100, `점수: ${this.score}`, {
-        fontSize: '26px', color: '#ffffff',
-      }).setOrigin(0.5);
+      // ─── 실패 ──────────────────────────────
+
+      this.add.text(cx, panelTop + 50, '😢', { fontSize: '48px' }).setOrigin(0.5).setDepth(2);
+
+      this.add.text(cx, panelTop + 105, '실패...', {
+        fontSize: '28px', fontStyle: 'bold', color: '#FF5252',
+      }).setOrigin(0.5).setDepth(2);
+
+      this.add.text(cx, panelTop + 140, `점수: ${this.score}`, {
+        fontSize: '14px', color: 'rgba(255,255,255,0.5)',
+      }).setOrigin(0.5).setDepth(2);
 
       if (this.isDaily) {
-        // 일일 도전 실패
-        this.add.text(cx, cy - panelH / 2 + 140, '내일 다시 도전하세요!', {
-          fontSize: '18px', color: '#aaaaaa',
-        }).setOrigin(0.5);
+        this.add.text(cx, panelTop + 175, '내일 다시 도전하세요!', {
+          fontSize: '16px', color: 'rgba(255,255,255,0.4)',
+        }).setOrigin(0.5).setDepth(2);
 
-        new UIButton(this, cx, cy + 20, 280, 55, {
-          text: '확인',
-          fontSize: '24px',
-          bgColor: 0x7f8c8d,
+        new UIButton(this, cx, panelTop + 230, 260, 50, {
+          text: '확인', fontSize: '18px', bgColor: 0x424242, depth: 2, radius: 14,
           onClick: () => fadeToScene(this, 'DailyChallenge'),
         });
       } else {
@@ -195,10 +215,11 @@ export class ResultScene extends Phaser.Scene {
         const extraCost = GAME_CONFIG.ECONOMY.BOOSTER_EXTRA_MOVES;
         const canBuy = SaveManager.getCoins() >= extraCost;
 
-        new UIButton(this, cx, cy - 20, 280, 55, {
-          text: `+5 이동 (${extraCost}💰)`,
-          fontSize: '22px',
-          bgColor: canBuy ? 0xe67e22 : 0x555555,
+        new UIButton(this, cx, panelTop + 185, 260, 50, {
+          text: `+5 이동 (${extraCost}🪙)`,
+          fontSize: '16px',
+          bgColor: canBuy ? 0xFB8C00 : 0x424242,
+          depth: 2, radius: 14,
           onClick: () => {
             if (canBuy && SaveManager.spendCoins(extraCost)) {
               fadeToScene(this, 'Game', { level: this.level });
@@ -206,22 +227,25 @@ export class ResultScene extends Phaser.Scene {
           },
         });
 
-        // 재시도
-        new UIButton(this, cx, cy + 50, 280, 55, {
-          text: '재시도',
-          fontSize: '24px',
-          bgColor: 0x3498db,
+        new UIButton(this, cx, panelTop + 248, 260, 50, {
+          text: '재시도', fontSize: '18px', bgColor: 0x2979FF, depth: 2, radius: 14,
           onClick: () => fadeToScene(this, 'Game', { level: this.level }),
         });
       }
-    }
 
-    // 하단 네비게이션
-    new UIButton(this, cx, cy + panelH / 2 - 45, 280, 55, {
-      text: this.isDaily ? '메인 메뉴' : '레벨 선택',
-      fontSize: '24px',
-      bgColor: 0x7f8c8d,
-      onClick: () => fadeToScene(this, this.isDaily ? 'Menu' : 'LevelSelect'),
-    });
+      // 하단 버튼
+      const bottomBtnY = panelTop + panelH - 45;
+      const bottomBg = this.add.graphics().setDepth(2);
+      bottomBg.fillStyle(0xffffff, 0.1);
+      bottomBg.fillRoundedRect(cx - 130, bottomBtnY - 22, 260, 44, 14);
+      bottomBg.lineStyle(1, 0xffffff, 0.15);
+      bottomBg.strokeRoundedRect(cx - 130, bottomBtnY - 22, 260, 44, 14);
+
+      this.add.text(cx, bottomBtnY, this.isDaily ? '메인 메뉴' : '레벨 선택', {
+        fontSize: '16px', fontStyle: 'bold', color: 'rgba(255,255,255,0.7)',
+      }).setOrigin(0.5).setDepth(2)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerup', () => fadeToScene(this, this.isDaily ? 'Menu' : 'LevelSelect'));
+    }
   }
 }

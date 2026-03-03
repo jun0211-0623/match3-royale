@@ -14,23 +14,40 @@ export const GAME_CONFIG = {
 
   COLORS: ['red', 'blue', 'green', 'yellow', 'purple', 'orange'],
 
+  // Material Design 고채도 색상
   COLOR_HEX: {
-    red:    0xe74c3c,
-    blue:   0x3498db,
-    green:  0x2ecc71,
-    yellow: 0xf1c40f,
-    purple: 0x9b59b6,
-    orange: 0xe67e22,
+    red:    0xFF1744,
+    blue:   0x2979FF,
+    green:  0x00E676,
+    yellow: 0xFFC400,
+    purple: 0xD500F9,
+    orange: 0xFF6D00,
   },
 
-  // 입체감 있는 젬 텍스처용 팔레트 (8종 변형)
   COLOR_PALETTE: {
-    red:    { base: 0xe74c3c, light: 0xf1948a, lighter: 0xf5b7b1, dark: 0xc0392b, darker: 0x922b21, shine: 0xfadbd8, glow: 0xff6b6b, rim: 0xffeaea },
-    blue:   { base: 0x3498db, light: 0x7fb3d8, lighter: 0xaed6f1, dark: 0x2176ae, darker: 0x1a5276, shine: 0xd6eaf8, glow: 0x5dade2, rim: 0xe8f6fd },
-    green:  { base: 0x27ae60, light: 0x6fcf97, lighter: 0xa9dfbf, dark: 0x1e8449, darker: 0x145a32, shine: 0xd5f5e3, glow: 0x58d68d, rim: 0xe8f8f0 },
-    yellow: { base: 0xf1c40f, light: 0xf7dc6f, lighter: 0xfad7a0, dark: 0xd4ac0d, darker: 0xb7950b, shine: 0xfef9e7, glow: 0xf9e154, rim: 0xfff8dc },
-    purple: { base: 0x8e44ad, light: 0xbb8fce, lighter: 0xd2b4de, dark: 0x6c3483, darker: 0x512e5f, shine: 0xe8daef, glow: 0xaf7ac5, rim: 0xf4ecf7 },
-    orange: { base: 0xe67e22, light: 0xf0b27a, lighter: 0xf5cba7, dark: 0xca6f1e, darker: 0xa04000, shine: 0xfdebd0, glow: 0xf5a623, rim: 0xfef0e0 },
+    red:    { base: 0xFF1744, light: 0xFF5252, lighter: 0xFF8A80, dark: 0xD50000, darker: 0xB71C1C, shine: 0xFFCDD2, glow: 0xFF5252, rim: 0xFFEBEE },
+    blue:   { base: 0x2979FF, light: 0x448AFF, lighter: 0x82B1FF, dark: 0x2962FF, darker: 0x1A237E, shine: 0xBBDEFB, glow: 0x448AFF, rim: 0xE3F2FD },
+    green:  { base: 0x00E676, light: 0x69F0AE, lighter: 0xB9F6CA, dark: 0x00C853, darker: 0x1B5E20, shine: 0xC8E6C9, glow: 0x69F0AE, rim: 0xE8F5E9 },
+    yellow: { base: 0xFFC400, light: 0xFFD740, lighter: 0xFFE57F, dark: 0xFFAB00, darker: 0xFF8F00, shine: 0xFFF8E1, glow: 0xFFD740, rim: 0xFFF8E1 },
+    purple: { base: 0xD500F9, light: 0xEA80FC, lighter: 0xF3C4FB, dark: 0xAA00FF, darker: 0x6A1B9A, shine: 0xE1BEE7, glow: 0xEA80FC, rim: 0xF3E5F5 },
+    orange: { base: 0xFF6D00, light: 0xFFA040, lighter: 0xFFCC80, dark: 0xE65100, darker: 0xBF360C, shine: 0xFFE0B2, glow: 0xFFA040, rim: 0xFFF3E0 },
+  },
+
+  // UI 테마 색상
+  UI: {
+    GOLD: 0xFFD54F,
+    GOLD_DARK: 0xFF8F00,
+    GOLD_LIGHT: 0xFFE082,
+    BG_TOP: 0x0A0E27,
+    BG_MID: 0x1A1145,
+    BG_BOTTOM: 0x2D1B69,
+    PANEL_BG: 0x1E1452,
+    PANEL_BORDER: 0xFFD54F,
+    GLASS: 0xffffff,     // used with low alpha
+    GLASS_ALPHA: 0.06,
+    TEXT_PRIMARY: '#ffffff',
+    TEXT_GOLD: '#FFD54F',
+    TEXT_DIM: 'rgba(255,255,255,0.5)',
   },
 
   ANIM: {
@@ -58,7 +75,6 @@ export const GAME_CONFIG = {
     EXTRA_MOVES_COUNT: 5,
   },
 
-  // 장애물 블록 팔레트
   OBSTACLES: {
     ice: {
       maxLayers: 2,
